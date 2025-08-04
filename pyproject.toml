@@ -1,0 +1,53 @@
+[project]
+name = "price-negative-comparison"
+version = "1.0.0"
+description = "AI-powered electricity price and solar production analysis system with REST API"
+readme = "README.md"
+requires-python = ">=3.9"
+keywords = ["electricity", "solar", "ai", "csv", "analysis", "nordic", "prices"]
+authors = [
+    {name = "Your Name", email = "your.email@example.com"}
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Scientific/Engineering :: Information Analysis",
+    "Topic :: Internet :: WWW/HTTP :: HTTP Servers",
+]
+dependencies = [
+    "entsoe-py>=0.7.1",
+    "fastparquet>=2024.11.0",
+    "flask>=3.1.1",
+    "jupyter>=1.1.1",
+    "openai>=1.98.0",
+    "pyarrow>=21.0.0",
+    "python-dotenv>=1.1.1",
+    "requests>=2.32.4",
+    "werkzeug>=3.1.3",
+    "xai-sdk>=1.0.1",
+    "pandas>=1.5.0",
+    "numpy>=1.20.0",
+]
+
+[project.urls]
+"Homepage" = "https://github.com/yourusername/price-negative-comparison"
+"Bug Reports" = "https://github.com/yourusername/price-negative-comparison/issues"
+"Source" = "https://github.com/yourusername/price-negative-comparison"
+
+[project.scripts]
+price-analysis = "main:main"
+flask-api = "flask_api:main"
+
+[tool.uv]
+dev-dependencies = [
+    "pytest>=7.0.0",
+    "black>=22.0.0",
+    "flake8>=4.0.0",
+    "mypy>=0.950",
+]
