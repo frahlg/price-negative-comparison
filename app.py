@@ -1,17 +1,18 @@
 #!/usr/bin/env python3
 """
-Price Production Analysis Flask API
+Sourceful Energy - Price Production Analysis Web Application
 
-A REST API service for analyzing electricity prices and solar production data.
+A comprehensive web application for analyzing electricity prices and solar production data.
+Built with Flask, Bootstrap, and modern web technologies.
 
 Usage:
-    python flask_api.py
+    python app.py
 
-Endpoints:
-    POST /analyze - Analyze production data against electricity prices
-    GET /health - Health check
-    GET /database/info - Database information
-    GET /database/areas - List available areas
+Web Interface:
+    GET / - Main dashboard and upload interface
+    POST /upload - Upload and analyze production data
+    GET /results/<session_id> - View analysis results
+    GET /status - Application status and health
 """
 
 from flask import Flask, request, jsonify, make_response, render_template, Blueprint
@@ -59,9 +60,85 @@ class NumpyJSONEncoder(json.JSONEncoder):
         return super().default(obj)
 
 app = Flask(__name__, template_folder='templates', static_folder='static')
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+app.secret_key = os.environ.get('SECRET_KEY', 'dev-key-change-in-production-MUST-BE-RANDOM')
 
-# Create API Blueprint for all existing endpoints
-api_blueprint = Blueprint('api', __name__)
+# Internal API security configuration
+import secrets
+import hashlib
+import time
+from collections import defaultdict
+from functools import wraps
+from flask import session
+
+# Generate a secure internal API token per session
+INTERNAL_API_HEADER = 'X-Internal-API-Token'
+
+# Rate limiting
+request_counts = defaultdict(lambda: defaultdict(int))
+REQUEST_LIMIT = 100  # requests per minute per IP
+REQUEST_WINDOW = 60  # seconds
+
+def generate_internal_token():
+    """Generate a secure token for internal API access."""
+    return secrets.token_urlsafe(32)
+
+def check_rate_limit(ip):
+    """Check if IP is within rate limits."""
+    current_time = int(time.time())
+    minute_window = current_time // REQUEST_WINDOW
+    
+    # Clean old entries
+    for old_minute in list(request_counts[ip].keys()):
+        if old_minute < minute_window - 1:
+            del request_counts[ip][old_minute]
+    
+    # Check current requests
+    current_requests = request_counts[ip][minute_window]
+    if current_requests >= REQUEST_LIMIT:
+        return False
+    
+    request_counts[ip][minute_window] += 1
+    return True
+
+def require_internal_access(f):
+    """Decorator to protect internal API endpoints."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Rate limiting
+        if not check_rate_limit(request.remote_addr):
+            logger.warning(f"Rate limit exceeded for {request.remote_addr}")
+            return jsonify({'error': 'Rate limit exceeded'}), 429
+        
+        # Check if request has valid internal token
+        token = request.headers.get(INTERNAL_API_HEADER)
+        session_token = session.get('internal_api_token')
+        
+        # Additional security: Check if request is from same origin
+        origin = request.headers.get('Origin')
+        referer = request.headers.get('Referer')
+        host = request.headers.get('Host')
+        
+        # Allow requests from same origin or with valid referer
+        valid_origin = (
+            origin and origin.endswith(f"://{host}") or
+            referer and f"://{host}" in referer or
+            request.remote_addr in ['127.0.0.1', '::1']  # localhost
+        )
+        
+        if not token or not session_token or token != session_token:
+            logger.warning(f"Unauthorized internal API access attempt from {request.remote_addr}")
+            return jsonify({'error': 'Unauthorized access to internal API'}), 403
+            
+        if not valid_origin:
+            logger.warning(f"Invalid origin for internal API access from {request.remote_addr}: {origin}")
+            return jsonify({'error': 'Invalid request origin'}), 403
+            
+        return f(*args, **kwargs)
+    return decorated_function
+
+# Create internal API Blueprint (protected)
+internal_api = Blueprint('internal_api', __name__, url_prefix='/_api')
 
 # Load environment variables
 load_dotenv()
@@ -112,16 +189,19 @@ def format_price_with_currency(price_eur_per_mwh, currency, rate):
         price_local_kwh = (price_eur_per_mwh * rate) / 1000
         return f"{price_local_kwh:.4f} {currency}/kWh"
 
-@api_blueprint.route('/health', methods=['GET'])
+@internal_api.route('/health', methods=['GET'])
+@require_internal_access
 def health_check():
-    """Health check endpoint."""
+    """Internal health check endpoint."""
     return jsonify({
         'status': 'healthy',
-        'service': 'Price Production Analysis API',
+        'service': 'Sourceful Energy Web Application',
         'version': '1.0.0'
     })
 
-@api_blueprint.route('/currencies', methods=['GET'])
+@require_internal_access
+@internal_api.route('/currencies', methods=['GET'])
+@require_internal_access
 def get_supported_currencies():
     """Get list of supported currencies."""
     return jsonify({
@@ -130,7 +210,8 @@ def get_supported_currencies():
         'rates': CURRENCY_RATES
     })
 
-@api_blueprint.route('/database/info', methods=['GET'])
+@require_internal_access
+@internal_api.route('/database/info', methods=['GET'])
 def database_info():
     """Get database information."""
     try:
@@ -184,7 +265,8 @@ def database_info():
         logger.error(f"Database info error: {e}")
         return jsonify({'error': str(e)}), 500
 
-@api_blueprint.route('/database/areas', methods=['GET'])
+@require_internal_access
+@internal_api.route('/database/areas', methods=['GET'])
 def list_areas():
     """List available areas in the database."""
     try:
@@ -203,7 +285,8 @@ def list_areas():
         logger.error(f"List areas error: {e}")
         return jsonify({'error': str(e)}), 500
 
-@api_blueprint.route('/detect-csv-format', methods=['POST'])
+@require_internal_access
+@internal_api.route('/detect-csv-format', methods=['POST'])
 def detect_csv_format():
     """Detect CSV format for uploaded file."""
     if 'file' not in request.files:
@@ -293,7 +376,8 @@ def detect_csv_format():
         except:
             pass
 
-@api_blueprint.route('/analyze/daily-summary', methods=['POST'])
+@require_internal_access
+@internal_api.route('/analyze/daily-summary', methods=['POST'])
 def analyze_daily_summary():
     """
     Get daily summary analysis from production data.
@@ -429,7 +513,8 @@ def analyze_daily_summary():
         logger.error(f"Daily summary analysis error: {e}")
         return jsonify({'error': str(e)}), 500
 
-@api_blueprint.route('/analyze/negative-prices', methods=['POST'])
+@require_internal_access
+@internal_api.route('/analyze/negative-prices', methods=['POST'])
 def analyze_negative_prices_endpoint():
     """
     Dedicated negative price analysis endpoint.
@@ -652,7 +737,8 @@ def analyze_negative_prices_endpoint():
         logger.error(f"Negative price analysis error: {e}")
         return jsonify({'error': str(e)}), 500
 
-@api_blueprint.route('/docs', methods=['GET'])
+@require_internal_access
+@internal_api.route('/docs', methods=['GET'])
 def api_documentation():
     """Get API documentation in JSON format."""
     docs = {
@@ -799,7 +885,8 @@ def api_documentation():
     
     return jsonify(docs)
 
-@api_blueprint.route('/analyze/export', methods=['POST'])
+@require_internal_access
+@internal_api.route('/analyze/export', methods=['POST'])
 def analyze_and_export():
     """
     Analyze production data and return merged CSV data.
@@ -916,7 +1003,8 @@ def analyze_and_export():
         logger.error(f"Export analysis error: {e}")
         return jsonify({'error': str(e)}), 500
 
-@api_blueprint.route('/analyze', methods=['POST'])
+@require_internal_access
+@internal_api.route('/analyze', methods=['POST'])
 def analyze_production():
     """
     Analyze production data against electricity prices.
@@ -1086,7 +1174,8 @@ def too_large(e):
 
 # Graph Data Endpoints for Frontend
 
-@api_blueprint.route('/graph/price-timeline', methods=['GET'])
+@require_internal_access
+@internal_api.route('/graph/price-timeline', methods=['GET'])
 def get_price_timeline():
     """Get price data in timeline format for graphing."""
     try:
@@ -1193,7 +1282,8 @@ def get_price_timeline():
         logger.error(f"Error getting price timeline: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@api_blueprint.route('/graph/price-distribution', methods=['GET'])
+@require_internal_access
+@internal_api.route('/graph/price-distribution', methods=['GET'])
 def get_price_distribution():
     """Get price distribution data for histograms."""
     try:
@@ -1293,7 +1383,8 @@ def get_price_distribution():
         logger.error(f"Error getting price distribution: {str(e)}")
         return jsonify({'error': str(e)}), 500
 
-@api_blueprint.route('/graph/negative-price-periods', methods=['GET'])
+@require_internal_access
+@internal_api.route('/graph/negative-price-periods', methods=['GET'])
 def get_negative_price_periods():
     """Get negative price periods data for visualization."""
     try:
@@ -1416,14 +1507,77 @@ def internal_error(e):
     """Handle internal server error."""
     return jsonify({'error': 'Internal server error'}), 500
 
-# Register API Blueprint with /api prefix
-app.register_blueprint(api_blueprint, url_prefix='/api')
+# Register internal API Blueprint with hidden prefix
+app.register_blueprint(internal_api)
 
-# Web Routes
+# Web Routes (Public Interface)
 @app.route('/')
 def index():
-    """Main web interface."""
-    return render_template('index.html', message="Accelerating Energy Optimization")
+    """Main web interface with dashboard and upload functionality."""
+    # Generate internal API token for this session
+    if 'internal_api_token' not in session:
+        session['internal_api_token'] = generate_internal_token()
+    
+    return render_template('index.html', 
+                         message="Accelerating Energy Optimization",
+                         page_title="Dashboard")
+
+@app.route('/api-token')
+def get_api_token():
+    """Provide internal API token for authenticated frontend requests."""
+    if 'internal_api_token' not in session:
+        session['internal_api_token'] = generate_internal_token()
+    
+    return jsonify({
+        'token': session['internal_api_token'],
+        'header': INTERNAL_API_HEADER
+    })
+
+@app.route('/status')
+def status():
+    """Public status page showing application health and statistics."""
+    try:
+        # Get database info for status display
+        if Path(SECURE_DB_PATH).exists():
+            with sqlite3.connect(SECURE_DB_PATH) as conn:
+                total_records = conn.execute('SELECT COUNT(*) FROM price_data').fetchone()[0]
+                areas = conn.execute('SELECT DISTINCT area_code FROM price_data ORDER BY area_code').fetchall()
+                date_range = conn.execute('SELECT MIN(datetime), MAX(datetime) FROM price_data').fetchone()
+        else:
+            total_records = 0
+            areas = []
+            date_range = (None, None)
+            
+        status_data = {
+            'service': 'Sourceful Energy Web Application',
+            'status': 'operational',
+            'database': {
+                'records': total_records,
+                'areas': len(areas),
+                'coverage': f"{date_range[0]} to {date_range[1]}" if date_range[0] else "No data"
+            },
+            'features': {
+                'csv_analysis': True,
+                'negative_price_detection': True,
+                'multi_currency': True,
+                'supported_currencies': list(CURRENCY_RATES.keys())
+            }
+        }
+        
+        return render_template('status.html', status=status_data)
+    except Exception as e:
+        logger.error(f"Status page error: {e}")
+        return render_template('status.html', status={'service': 'Sourceful Energy', 'status': 'error'})
+
+@app.route('/upload', methods=['GET', 'POST'])
+def upload_page():
+    """Upload page for production data analysis."""
+    if request.method == 'GET':
+        return render_template('upload.html', page_title="Upload & Analyze")
+    
+    # Handle file upload and analysis
+    # This will be implemented when we enable the upload functionality
+    return jsonify({'message': 'Upload functionality coming soon!'})
 
 if __name__ == '__main__':
     import argparse
@@ -1435,24 +1589,13 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
-    print(f"Starting Price Production Analysis API on {args.host}:{args.port}")
+    print(f"Starting Sourceful Energy Web Application on {args.host}:{args.port}")
     print(f"Debug mode: {args.debug}")
     print("\nWeb Interface:")
-    print(f"  http://{args.host}:{args.port}/                - Main web interface")
-    print("\nAPI endpoints:")
-    print("  GET    /api/health                    - Health check")
-    print("  GET    /api/currencies               - List supported currencies")
-    print("  GET    /api/database/info            - Database information")
-    print("  GET    /api/database/areas           - List available areas")
-    print("  POST   /api/detect-csv-format        - Detect CSV file format")
-    print("  POST   /api/analyze                  - Analyze production data")
-    print("  POST   /api/analyze/daily-summary    - Daily summary analysis")
-    print("  POST   /api/analyze/negative-prices  - Negative price analysis")
-    print("  POST   /api/analyze/export           - Analyze and export CSV")
-    print("  GET    /api/docs                     - API documentation")
-    print("  GET    /api/graph/price-timeline     - Price timeline for graphing")
-    print("  GET    /api/graph/price-distribution - Price distribution histogram")
-    print("  GET    /api/graph/negative-price-periods - Negative price periods")
-    print(f"\nAPI Documentation: http://{args.host}:{args.port}/api/docs")
+    print(f"  http://{args.host}:{args.port}/                - Main dashboard")
+    print(f"  http://{args.host}:{args.port}/status          - System status")
+    print(f"  http://{args.host}:{args.port}/upload          - Upload data (coming soon)")
+    print("\nInternal API endpoints available for frontend integration.")
+    print(f"\nApplication Dashboard: http://{args.host}:{args.port}/")
     
     app.run(host=args.host, port=args.port, debug=args.debug)

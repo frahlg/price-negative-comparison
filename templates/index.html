@@ -3,121 +3,195 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sourceful Energy POC</title>
+    <title>Sourceful Energy - Accelerating Energy Optimization</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
 </head>
 <body>
-    <div class="container-fluid">
-        <!-- Header -->
-        <header class="py-4 mb-4 border-bottom">
-            <div class="row align-items-center">
-                <div class="col">
-                    <h1 class="display-4 fw-bold text-primary">⚡ Sourceful Energy</h1>
-                    <p class="lead text-muted">Democratizing Smart Energy Flows</p>
+    <!-- Header Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <img src="https://docs.sourceful.energy/assets/files/Sourceful-Logo-Wide-Teal-eb6845162483f6d470562338a87f7dc0.png" 
+                     alt="Sourceful Energy" class="logo-header me-3">
+                <div>
+                    <span class="fw-bold text-primary fs-4">Sourceful Energy</span>
+                    <div class="small text-muted">Democratizing Smart Energy Flows</div>
                 </div>
-                <div class="col-auto">
-                    <span class="badge bg-success fs-6">POC v1.0</span>
+            </a>
+            <span class="badge bg-success ms-auto">POC</span>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <section class="hero-section">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8 text-center">
+                    <h1 class="display-4 fw-bold text-primary mb-4">{{ message }}</h1>
+                    <p class="lead text-muted mb-5">
+                        Upload your solar production data to analyze against real-time electricity prices. 
+                        Discover when negative prices impact your energy exports and get actionable insights to optimize your energy strategy.
+                    </p>
                 </div>
             </div>
-        </header>
+        </div>
+    </section>
 
-        <!-- Main Content -->
-        <main>
+    <!-- Feature Cards Section -->
+    <section class="features-section py-5">
+        <div class="container">
+            <div class="row g-4">
+                <div class="col-md-4">
+                    <div class="card feature-card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-4">
+                                <i class="bi bi-graph-up fs-3"></i>
+                            </div>
+                            <h5 class="card-title fw-bold mb-3">Smart Analysis</h5>
+                            <p class="card-text text-muted">Upload your CSV files and get instant AI-powered format detection with comprehensive price analysis</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card feature-card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-4">
+                                <i class="bi bi-lightning-charge fs-3"></i>
+                            </div>
+                            <h5 class="card-title fw-bold mb-3">Negative Price Detection</h5>
+                            <p class="card-text text-muted">Get detailed reports on when electricity prices go negative and their financial impact on your exports</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card feature-card h-100 border-0 shadow-sm">
+                        <div class="card-body text-center p-4">
+                            <div class="feature-icon bg-info text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-4">
+                                <i class="bi bi-currency-exchange fs-3"></i>
+                            </div>
+                            <h5 class="card-title fw-bold mb-3">Multi-Currency Support</h5>
+                            <p class="card-text text-muted">View your analysis results in EUR, SEK, USD, NOK, DKK, or GBP with real-time exchange rates</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Upload Teaser Section -->
+    <section class="upload-section py-5 bg-light">
+        <div class="container">
+            <div class="row justify-content-center">
+                <div class="col-lg-8">
+                    <div class="upload-teaser text-center p-5 bg-white rounded-4 shadow-sm">
+                        <div class="upload-icon mb-4">
+                            <i class="bi bi-cloud-upload text-primary display-1"></i>
+                        </div>
+                        <h3 class="fw-bold mb-3">🚀 Coming Soon: Upload Your Production Data</h3>
+                        <p class="text-muted mb-4">
+                            Drop your CSV files here to analyze solar production against electricity market prices.
+                            Get instant insights into your energy optimization opportunities.
+                        </p>
+                        <div class="upload-placeholder p-4 mb-4 border-2 border-dashed rounded-3">
+                            <div class="d-flex flex-column align-items-center">
+                                <i class="bi bi-file-earmark-arrow-up text-muted fs-1 mb-2"></i>
+                                <span class="text-muted">Drag & drop your CSV files here</span>
+                                <small class="text-muted mt-2">Supported formats: CSV with datetime and production columns</small>
+                            </div>
+                        </div>
+                        <button class="btn btn-primary btn-lg disabled" disabled onclick="showComingSoon()">
+                            <i class="bi bi-upload me-2"></i>
+                            Upload & Analyze (Coming Soon)
+                        </button>
+                        <div class="mt-3">
+                            <small class="text-muted">
+                                <i class="bi bi-info-circle me-1"></i>
+                                Full upload functionality will be available soon. Currently in development.
+                            </small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer bg-dark text-light py-5">
+        <div class="container">
             <div class="row">
-                <div class="col-md-8 mx-auto text-center">
-                    <div class="hero-section py-5">
-                        <h2 class="display-5 fw-bold mb-4">{{ message }}</h2>
-                        <p class="lead mb-4">
-                            Analyze your solar production data against real-time electricity prices. 
-                            Understand when negative prices impact your energy exports and optimize your energy flows.
-                        </p>
-                        
-                        <!-- Feature Cards -->
-                        <div class="row g-4 mt-4">
-                            <div class="col-md-4">
-                                <div class="card h-100 border-0 shadow-sm">
-                                    <div class="card-body text-center">
-                                        <div class="feature-icon bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
-                                            📊
-                                        </div>
-                                        <h5 class="card-title">Smart Analysis</h5>
-                                        <p class="card-text">AI-powered CSV format detection and comprehensive price analysis</p>
-                                    </div>
-                                </div>
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center mb-3">
+                        <img src="https://docs.sourceful.energy/assets/files/Sourceful-Logo-Wide-Light-3469afb6868bc31c6223997a8af6f64c.png" 
+                             alt="Sourceful Energy" class="logo-footer me-3">
+                    </div>
+                    <p class="text-light-50 mb-3">
+                        Accelerating the energy transition through smart data analytics and democratizing access to energy optimization tools.
+                    </p>
+                    <div class="api-status-footer">
+                        <div class="d-flex flex-wrap gap-3">
+                            <div class="status-item">
+                                <span class="status-indicator bg-success"></span>
+                                <a href="/status" class="text-light text-decoration-none">
+                                    <i class="bi bi-activity me-1"></i>System Status
+                                </a>
                             </div>
-                            <div class="col-md-4">
-                                <div class="card h-100 border-0 shadow-sm">
-                                    <div class="card-body text-center">
-                                        <div class="feature-icon bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
-                                            ⚡
-                                        </div>
-                                        <h5 class="card-title">Negative Price Detection</h5>
-                                        <p class="card-text">Identify periods when electricity prices go negative and track impact</p>
-                                    </div>
-                                </div>
+                            <div class="status-item">
+                                <a href="/upload" class="text-light text-decoration-none">
+                                    <i class="bi bi-cloud-upload me-1"></i>Upload Data
+                                </a>
                             </div>
-                            <div class="col-md-4">
-                                <div class="card h-100 border-0 shadow-sm">
-                                    <div class="card-body text-center">
-                                        <div class="feature-icon bg-info text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
-                                            🌍
-                                        </div>
-                                        <h5 class="card-title">Multi-Currency</h5>
-                                        <p class="card-text">Support for EUR, SEK, USD, NOK, DKK, and GBP currency displays</p>
-                                    </div>
-                                </div>
+                            <div class="status-item">
+                                <a href="https://docs.sourceful.energy" target="_blank" class="text-light text-decoration-none">
+                                    <i class="bi bi-book me-1"></i>Documentation
+                                </a>
                             </div>
-                        </div>
-
-                        <!-- Upload Section Preview -->
-                        <div class="upload-preview mt-5 p-4 bg-light rounded">
-                            <h4 class="mb-3">🚀 Coming Soon: Upload Your Production Data</h4>
-                            <p class="text-muted">
-                                Drop your CSV files here to analyze solar production against electricity market prices.
-                                <br><small>Supported formats: CSV with datetime and production columns</small>
-                            </p>
-                            <button class="btn btn-primary btn-lg" disabled>
-                                Upload & Analyze (Coming Soon)
-                            </button>
-                        </div>
-
-                        <!-- API Status -->
-                        <div class="api-status mt-4">
-                            <p class="small text-muted">
-                                API Status: <span id="api-status" class="text-success">● Online</span>
-                                | <a href="/api/docs" class="text-decoration-none">API Documentation</a>
-                                | <a href="/api/health" class="text-decoration-none">Health Check</a>
-                            </p>
                         </div>
                     </div>
                 </div>
-            </div>
-        </main>
-
-        <!-- Footer -->
-        <footer class="py-4 mt-5 border-top bg-light">
-            <div class="container">
-                <div class="row">
-                    <div class="col-md-6">
-                        <p class="text-muted small">
-                            © 2025 Sourceful Energy - Accelerating the energy transition through smart data analytics
-                        </p>
+                <div class="col-md-6">
+                    <div class="row">
+                        <div class="col-sm-6">
+                            <h6 class="fw-bold mb-3">Platform</h6>
+                            <ul class="list-unstyled">
+                                <li><a href="/status" class="text-light-50 text-decoration-none">System Status</a></li>
+                                <li><a href="/upload" class="text-light-50 text-decoration-none">Upload Data</a></li>
+                                <li><span class="text-light-50">Multi-Currency Support</span></li>
+                            </ul>
+                        </div>
+                        <div class="col-sm-6">
+                            <h6 class="fw-bold mb-3">Resources</h6>
+                            <ul class="list-unstyled">
+                                <li><a href="https://docs.sourceful.energy" target="_blank" class="text-light-50 text-decoration-none">Documentation</a></li>
+                                <li><a href="https://sourceful.energy" target="_blank" class="text-light-50 text-decoration-none">About Sourceful</a></li>
+                                <li><span class="text-light-50">Built with Flask & Bootstrap</span></li>
+                            </ul>
+                        </div>
                     </div>
-                    <div class="col-md-6 text-end">
-                        <p class="text-muted small">
-                            Built with Flask, Bootstrap & ⚡ e/acc principles
-                        </p>
+                    <div class="mt-4">
+                        <small class="text-light-50">
+                            © 2025 Sourceful Energy - Proof of Concept Platform
+                        </small>
                     </div>
                 </div>
             </div>
-        </footer>
-    </div>
+        </div>
+    </footer>
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+    
+    <!-- Global functions -->
+    <script>
+        function showComingSoon() {
+            if (window.sourcefulEnergy) {
+                window.sourcefulEnergy.showComingSoonMessage();
+            }
+        }
+    </script>
 </body>
 </html>
