@@ -593,6 +593,75 @@ body {
     }
 }
 
+/* AI Explanation Section */
+.explanation-text {
+    color: var(--sourceful-dark);
+    text-align: justify;
+}
+
+.explanation-text p {
+    margin-bottom: 1rem;
+}
+
+.explanation-text p:last-child {
+    margin-bottom: 0;
+}
+
+.ai-explanation-card {
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(240, 248, 255, 0.95) 100%);
+    border: 1px solid rgba(0, 102, 204, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 102, 204, 0.1);
+    transition: all 0.3s ease;
+}
+
+.ai-explanation-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 40px rgba(0, 102, 204, 0.15);
+}
+
+.ai-badge {
+    background: linear-gradient(45deg, #28a745, #20c997);
+    border: none;
+    font-weight: 500;
+    padding: 0.5rem 1rem;
+    border-radius: 20px;
+    color: white;
+    box-shadow: 0 2px 8px rgba(40, 167, 69, 0.3);
+}
+
+.ai-badge i {
+    animation: pulse-ai 2s infinite;
+}
+
+@keyframes pulse-ai {
+    0%, 100% { 
+        transform: scale(1);
+        opacity: 1;
+    }
+    50% { 
+        transform: scale(1.1);
+        opacity: 0.8;
+    }
+}
+
+.explanation-gradient-bg {
+    background: linear-gradient(135deg, #f8f9fa 0%, #e3f2fd 100%);
+    position: relative;
+    overflow: hidden;
+}
+
+.explanation-gradient-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 20% 80%, rgba(0, 102, 204, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(32, 201, 151, 0.05) 0%, transparent 50%);
+    pointer-events: none;
+}
+
 /* Timeline Controls */
 .timeline-controls {
     justify-content: flex-end;

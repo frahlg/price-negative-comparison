@@ -28,6 +28,7 @@ from datetime import datetime, date
 from pathlib import Path
 from utils.csv_format_detector_fallback import CSVFormatDetectorFallback
 from utils.csv_format_module import CSVFormatDetector
+from utils.ai_explainer import AIExplainer
 from dotenv import load_dotenv
 import logging
 from werkzeug.utils import secure_filename
@@ -1609,7 +1610,8 @@ def results_page():
                 # Use cached data which includes chart time series
                 results = {
                     'analysis': cached_data['analysis'],
-                    'metadata': cached_data['metadata']
+                    'metadata': cached_data['metadata'],
+                    'ai_explanation': cached_data.get('ai_explanation', 'AI explanation not available for this analysis.')
                 }
                 logger.info(f"Loaded full analysis from cache for session {session_id}")
             else:
@@ -1721,6 +1723,18 @@ def upload_page():
                 'data_points': int(len(merged_df))
             }
             
+            # Generate AI explanation of the analysis
+            ai_explanation = None
+            try:
+                logger.info("Generating AI explanation of analysis results")
+                explainer = AIExplainer()
+                ai_explanation = explainer.explain_analysis(analysis_json, metadata)
+                logger.info(f"Generated AI explanation: {len(ai_explanation)} characters")
+            except Exception as e:
+                logger.warning(f"Failed to generate AI explanation: {e}")
+                # Continue without AI explanation - it's not critical for the analysis
+                ai_explanation = "AI explanation temporarily unavailable. The analysis data and charts below provide detailed insights into your solar production and electricity market performance."
+            
             # Store the full analysis (including chart data) using a unique session ID
             session_id = session.get('session_id', None)
             if not session_id:
@@ -1750,6 +1764,7 @@ def upload_page():
                 pickle.dump({
                     'analysis': analysis_json,
                     'metadata': metadata,
+                    'ai_explanation': ai_explanation,
                     'timestamp': datetime.now().isoformat()
                 }, f)
             
