@@ -1533,16 +1533,176 @@ def internal_error(e):
 app.register_blueprint(internal_api)
 
 # Web Routes (Public Interface)
-@app.route('/')
+@app.route('/', methods=['GET', 'POST'])
 def index():
     """Main web interface with dashboard and upload functionality."""
-    # Generate internal API token for this session
-    if 'internal_api_token' not in session:
-        session['internal_api_token'] = generate_internal_token()
+    if request.method == 'GET':
+        # Generate internal API token for this session
+        if 'internal_api_token' not in session:
+            session['internal_api_token'] = generate_internal_token()
+        
+        return render_template('index.html', 
+                             message="Accelerating Energy Optimization",
+                             page_title="Dashboard")
     
-    return render_template('index.html', 
-                         message="Accelerating Energy Optimization",
-                         page_title="Dashboard")
+    # Handle POST - File upload and analysis
+    try:
+        # Validate file upload
+        if 'file' not in request.files:
+            flash('No file provided', 'error')
+            return render_template('index.html', page_title="Dashboard")
+        
+        file = request.files['file']
+        if file.filename == '':
+            flash('No file selected', 'error')
+            return render_template('index.html', page_title="Dashboard")
+        
+        if not allowed_file(file.filename):
+            flash('Invalid file type. Only CSV files are allowed.', 'error')
+            return render_template('index.html', page_title="Dashboard")
+        
+        # Get form parameters
+        email = request.form.get('email')
+        if not email:
+            flash('E-post adress krävs för analys.', 'error')
+            return render_template('index.html', page_title="Dashboard")
+        
+        area = request.form.get('area', 'SE_4')  # Default to SE_4
+        currency = request.form.get('currency', 'SEK').upper()  # Default to SEK
+        start_date = request.form.get('start_date')
+        end_date = request.form.get('end_date')
+        
+        # Validate currency
+        try:
+            currency_rate = get_currency_rate(currency)
+        except ValueError as e:
+            flash(f'Currency error: {str(e)}', 'error')
+            return render_template('index.html', page_title="Dashboard")
+        
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(mode='w+b', suffix='.csv', delete=False) as temp_file:
+            file.save(temp_file.name)
+            temp_filename = temp_file.name
+        
+        try:
+            # Create analysis components
+            price_fetcher = PriceFetcher(db_path=SECURE_DB_PATH)
+            production_loader = ProductionLoader()
+            analyzer = PriceAnalyzer()
+            
+            # Load production data
+            production_df = production_loader.load_production_data(temp_filename)
+            
+            # Determine date range
+            production_start = pd.Timestamp(production_df.index.min(), tz='Europe/Stockholm')
+            production_end = pd.Timestamp(production_df.index.max(), tz='Europe/Stockholm')
+            
+            if start_date:
+                start_date = pd.Timestamp(start_date, tz='Europe/Stockholm')
+                if start_date > production_start:
+                    production_df = production_df[production_df.index >= start_date.tz_localize(None)]
+            else:
+                start_date = production_start
+                
+            if end_date:
+                end_date = pd.Timestamp(end_date, tz='Europe/Stockholm')
+                if end_date < production_end:
+                    production_df = production_df[production_df.index <= end_date.tz_localize(None)]
+            else:
+                end_date = production_end
+            
+            # Get price data with automatic fetching of missing data
+            prices_df = price_fetcher.get_price_data(area, start_date, end_date)
+            
+            # Merge and analyze
+            merged_df = analyzer.merge_data(prices_df, production_df, currency_rate)
+            analysis = analyzer.analyze_data(merged_df)
+            
+            # Convert analysis results to JSON-serializable format using our custom encoder
+            analysis_json = json.loads(json.dumps(analysis, cls=NumpyJSONEncoder))
+            
+            # Log email for future use (simple file logging for now)
+            try:
+                log_entry = f"{datetime.now().isoformat()},{email},{secure_filename(file.filename)},{area}\n"
+                with open('data/email_logs.txt', 'a', encoding='utf-8') as f:
+                    f.write(log_entry)
+                logger.info(f"Logged email for analysis: {email[:10]}...")
+            except Exception as e:
+                logger.warning(f"Failed to log email: {e}")
+
+            # Prepare metadata with native types
+            metadata = {
+                'email': email,
+                'area_code': area,
+                'currency': currency,
+                'currency_rate': float(currency_rate),
+                'file_name': secure_filename(file.filename),
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat(),
+                'data_points': int(len(merged_df))
+            }
+            
+            # Generate AI explanation of the analysis
+            ai_explanation = None
+            try:
+                logger.info("Generating AI explanation of analysis results")
+                explainer = AIExplainer()
+                ai_explanation = explainer.explain_analysis(analysis_json, metadata)
+                logger.info(f"Generated AI explanation: {len(ai_explanation)} characters")
+            except Exception as e:
+                logger.warning(f"Failed to generate AI explanation: {e}")
+                # Continue without AI explanation - it's not critical for the analysis
+                ai_explanation = "AI explanation temporarily unavailable. The analysis data and charts below provide detailed insights into your solar production and electricity market performance."
+            
+            # Store the full analysis (including chart data) using a unique session ID
+            session_id = session.get('session_id', None)
+            if not session_id:
+                session_id = str(uuid.uuid4())
+                session['session_id'] = session_id
+            
+            # Create a session-safe version of analysis (without large time series data)
+            session_analysis = {k: v for k, v in analysis_json.items() if k not in ['time_series', 'daily_series', 'negative_price_timeline']}
+            
+            # Store only essential metadata in session
+            session['analysis_results'] = {
+                'metadata': metadata,
+                'has_cache': True,
+                'session_id': session_id
+            }
+            
+            # Store full analysis data temporarily (you could use Redis, file cache, or database)
+            # For now, we'll use a simple file-based cache
+            cache_dir = Path('data/cache')
+            cache_dir.mkdir(exist_ok=True)
+            cache_file = cache_dir / f"{session_id}.pkl"
+            
+            # Clean up old cache files periodically
+            cleanup_old_cache_files()
+            
+            with open(cache_file, 'wb') as f:
+                pickle.dump({
+                    'analysis': analysis_json,
+                    'metadata': metadata,
+                    'ai_explanation': ai_explanation,
+                    'timestamp': datetime.now().isoformat()
+                }, f)
+            
+            logger.info(f"Analysis cached for session {session_id}, size: {len(str(analysis_json))} chars")
+            
+            flash('Analysis completed successfully!', 'success')
+            return redirect('/results')
+            
+        finally:
+            # Clean up temporary file
+            try:
+                os.unlink(temp_filename)
+            except:
+                pass
+                
+    except Exception as e:
+        logger.error(f"Upload processing error: {e}")
+        flash(f'Analysis failed: {str(e)}', 'error')
+        return render_template('index.html', page_title="Dashboard")
 
 @app.route('/api-token')
 def get_api_token():
@@ -1658,6 +1818,11 @@ def upload_page():
             return render_template('upload.html', page_title="Upload & Analyze")
         
         # Get form parameters
+        email = request.form.get('email')
+        if not email:
+            flash('E-post adress krävs för analys.', 'error')
+            return render_template('upload.html', page_title="Upload & Analyze")
+        
         area = request.form.get('area')
         if not area:
             flash('Please select an electricity area.', 'error')
@@ -1716,8 +1881,18 @@ def upload_page():
             # Convert analysis results to JSON-serializable format using our custom encoder
             analysis_json = json.loads(json.dumps(analysis, cls=NumpyJSONEncoder))
             
+            # Log email for future use (simple file logging for now)
+            try:
+                log_entry = f"{datetime.now().isoformat()},{email},{secure_filename(file.filename)},{area}\n"
+                with open('data/email_logs.txt', 'a', encoding='utf-8') as f:
+                    f.write(log_entry)
+                logger.info(f"Logged email for analysis: {email[:10]}...")
+            except Exception as e:
+                logger.warning(f"Failed to log email: {e}")
+
             # Prepare metadata with native types
             metadata = {
+                'email': email,
                 'area_code': area,
                 'currency': currency,
                 'currency_rate': float(currency_rate),

@@ -59,41 +59,67 @@ class AIExplainer:
         """
         
         # Prepare a clean summary of the data for the LLM
+        # Convert all prices from EUR/MWh to user currency per kWh
+        # Convert all energy values to kWh (already in kWh but ensure consistency)
+        
+        currency = metadata.get('currency', 'SEK')
+        currency_rate = metadata.get('currency_rate', 11.5)  # Default SEK rate
+        
+        # Conversion factor: EUR/MWh to user_currency/kWh
+        # 1 MWh = 1000 kWh, so EUR/MWh becomes (EUR/MWh * currency_rate) / 1000 = currency/kWh
+        price_conversion_factor = currency_rate / 1000.0
+        
         summary = {
             "metadata": {
                 "file_name": metadata.get('file_name', 'N/A'),
                 "area_code": metadata.get('area_code', 'N/A'),
-                "currency": metadata.get('currency', 'N/A'),
-                "currency_rate": metadata.get('currency_rate', 1.0),
+                "currency": currency,
                 "data_points": metadata.get('data_points', 0),
                 "period": f"{metadata.get('start_date', 'N/A')} to {metadata.get('end_date', 'N/A')}"
             },
             "analysis": {
                 "period_days": analysis_data.get('period_days', 0),
                 "total_hours": analysis_data.get('total_hours', 0),
-                "production_total": analysis_data.get('production_total', 0),
-                "production_mean": analysis_data.get('production_mean', 0),
-                "production_max": analysis_data.get('production_max', 0),
+                # Production data is already in kWh
+                "production_total_kwh": analysis_data.get('production_total', 0),
+                "production_mean_kwh": analysis_data.get('production_mean', 0),
+                "production_max_kwh": analysis_data.get('production_max', 0),
                 "hours_with_production": analysis_data.get('hours_with_production', 0),
-                "price_min_eur_mwh": analysis_data.get('price_min_eur_mwh', 0),
-                "price_max_eur_mwh": analysis_data.get('price_max_eur_mwh', 0),
-                "price_mean_eur_mwh": analysis_data.get('price_mean_eur_mwh', 0),
-                "price_median_eur_mwh": analysis_data.get('price_median_eur_mwh', 0),
+                # Convert prices from EUR/MWh to user_currency/kWh
+                "price_min_per_kwh": analysis_data.get('price_min_eur_mwh', 0) * price_conversion_factor,
+                "price_max_per_kwh": analysis_data.get('price_max_eur_mwh', 0) * price_conversion_factor,
+                "price_mean_per_kwh": analysis_data.get('price_mean_eur_mwh', 0) * price_conversion_factor,
+                "price_median_per_kwh": analysis_data.get('price_median_eur_mwh', 0) * price_conversion_factor,
+                # Negative price analysis
                 "negative_price_hours": analysis_data.get('negative_price_hours', 0),
                 "negative_price_percentage": analysis_data.get('negative_price_percentage', 0),
-                "production_during_negative_prices": analysis_data.get('production_during_negative_prices', 0),
+                "production_during_negative_prices_kwh": analysis_data.get('production_during_negative_prices', 0),
                 "production_percentage_negative_prices": analysis_data.get('production_percentage_negative_prices', 0),
-                "negative_export_cost_abs_sek": analysis_data.get('negative_export_cost_abs_sek', 0),
-                "total_export_value_sek": analysis_data.get('total_export_value_sek', 0),
-                "positive_export_value_sek": analysis_data.get('positive_export_value_sek', 0),
-                "worst_negative_price_eur_mwh": analysis_data.get('worst_negative_price_eur_mwh'),
+                # Financial data is already in user currency (SEK)
+                "negative_export_cost_total": analysis_data.get('negative_export_cost_abs_sek', 0),
+                "total_export_value": analysis_data.get('total_export_value_sek', 0),
+                "positive_export_value": analysis_data.get('positive_export_value_sek', 0),
+                # Convert worst negative price to user currency per kWh
+                "worst_negative_price_per_kwh": (analysis_data.get('worst_negative_price_eur_mwh', 0) * price_conversion_factor) if analysis_data.get('worst_negative_price_eur_mwh') is not None else None,
                 "worst_negative_price_datetime": analysis_data.get('worst_negative_price_datetime')
             }
         }
         
         prompt = f"""
-Du är en galen energiguru som kastar sanningar som blixtar och förklarar elmarknadens kaos med vild passion för solpanelhjältar! Analysera datan om elproduktion och priser som en tornado av insikter, ge en kort, max en paragraf-sammanfattning på svenska som exploderar av praktiska råd: tidsperioden som ett äventyr, totalproduktionen som en skattkista, finansiell prestanda med exportvärde och snittpris som vinstlotter, negativa prisers förbannelse (om de dyker upp – kostnad, tidpunkt och hur det suger livet ur plånboken), plus en vansinnig insikt om mönster eller optimeringar som får dig att skrika "UPPGRADERA NU!". Håll tonen konversationell, galet entusiastisk utan teknobabbel, börja rakt på sak med förklaringen – och viska subtilt att Sourceful Energy är den ultimata räddningen, typ genom att nämna hur en Zap skulle fixa allt som ett magiskt svärd mot energikaoset.
-Data:
+Du är en galen energiguru som jobbar på Sourceful Labs AB i Kalmar som kastar sanningar som blixtar och förklarar elmarknadens kaos med vild passion för solpanelhjältar! 
+
+Analysera datan om elproduktion och priser som en tornado av insikter, ge en kort, max en paragraf-sammanfattning på svenska som exploderar av praktiska råd: 
+
+VIKTIGT: ALL DATA ÄR REDAN KONVERTERAD:
+- All produktion är i kWh (kilowattimmar)
+- Alla priser är i {currency} per kWh 
+- Alla finansiella värden är i {currency}
+
+Förklara: tidsperioden som ett äventyr, totalproduktionen som en skattkista, finansiell prestanda med exportvärde och snittpris som vinstlotter, negativa prisers förbannelse (om de dyker upp – kostnad, tidpunkt och hur det suger livet ur plånboken), plus en vansinnig insikt om mönster eller optimeringar som får dig att skrika. 
+
+Gärna en underton av att det brukade vara bra med solceller men nu är det NEGATIVA elpriser som gör att det är du som betalar för att producera el. Håll tonen konversationell, galet entusiastisk utan teknobabbel, börja rakt på sak med förklaringen – och viska subtilt att Sourceful Labs AB är den ultimata räddningen, typ genom att nämna hur en Zap-lösning skulle fixa allt som ett magiskt svärd mot energikaoset.
+
+Data (allt redan i kWh och {currency}):
 {json.dumps(summary, indent=2)}
 
 """
@@ -173,26 +199,34 @@ Data:
             str: Basic fallback explanation
         """
         currency = metadata.get('currency', 'SEK')
-        currency_rate = metadata.get('currency_rate', 1.0)
+        currency_rate = metadata.get('currency_rate', 11.5)
         
-        # Convert key values to display currency
-        total_value = analysis_data.get('total_export_value_sek', 0) * (currency_rate / 11.5)
-        neg_cost = analysis_data.get('negative_export_cost_abs_sek', 0) * (currency_rate / 11.5)
+        # Convert prices from EUR/MWh to user currency per kWh
+        price_conversion_factor = currency_rate / 1000.0
+        
+        # Financial values are already in user currency (should be SEK if using Swedish system)
+        total_value = analysis_data.get('total_export_value_sek', 0)
+        neg_cost = analysis_data.get('negative_export_cost_abs_sek', 0)
+        
+        # Convert price range to user currency per kWh
+        price_min = analysis_data.get('price_min_eur_mwh', 0) * price_conversion_factor
+        price_max = analysis_data.get('price_max_eur_mwh', 0) * price_conversion_factor
+        price_mean = analysis_data.get('price_mean_eur_mwh', 0) * price_conversion_factor
         
         explanation = f"""
-Your solar panels produced {analysis_data.get('production_total', 0):.1f} kWh over {analysis_data.get('period_days', 0)} days in the {metadata.get('area_code', 'N/A')} electricity area. The total export value was {total_value:.2f} {currency}.
+Dina solpaneler producerade {analysis_data.get('production_total', 0):.1f} kWh under {analysis_data.get('period_days', 0)} dagar i elområde {metadata.get('area_code', 'N/A')}. Det totala exportvärdet var {total_value:.2f} {currency}.
 
-During this period, electricity prices ranged from {analysis_data.get('price_min_eur_mwh', 0):.2f} to {analysis_data.get('price_max_eur_mwh', 0):.2f} EUR/MWh, with an average of {analysis_data.get('price_mean_eur_mwh', 0):.2f} EUR/MWh.
+Under denna period varierade elpriserna från {price_min:.3f} till {price_max:.3f} {currency}/kWh, med ett genomsnitt på {price_mean:.3f} {currency}/kWh.
 
 """
         
         neg_hours = analysis_data.get('negative_price_hours', 0)
         if neg_hours > 0:
-            explanation += f"There were {neg_hours} hours with negative electricity prices, costing you approximately {neg_cost:.2f} {currency} when your panels were producing during these periods. This represents {analysis_data.get('production_percentage_negative_prices', 0):.1f}% of your total production."
+            explanation += f"Det var {neg_hours} timmar med negativa elpriser, vilket kostade dig cirka {neg_cost:.2f} {currency} när dina paneler producerade under dessa perioder. Detta representerar {analysis_data.get('production_percentage_negative_prices', 0):.1f}% av din totala produktion."
         else:
-            explanation += "Fortunately, there were no negative electricity prices during your production periods, which is good news for your returns."
+            explanation += "Lyckligtvis var det inga negativa elpriser under dina produktionsperioder, vilket är goda nyheter för din avkastning."
         
-        explanation += f"\n\nYour panels were most productive during peak hours, with a maximum hourly production of {analysis_data.get('production_max', 0):.2f} kWh. On average, they produced {analysis_data.get('production_mean', 0):.2f} kWh per hour when generating electricity."
+        explanation += f"\n\nDina paneler var som mest produktiva under topptimmarna, med en maximal timproduktion på {analysis_data.get('production_max', 0):.2f} kWh. I genomsnitt producerade de {analysis_data.get('production_mean', 0):.2f} kWh per timme när de genererade el."
         
         return explanation.strip()
 

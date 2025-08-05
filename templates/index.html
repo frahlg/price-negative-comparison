@@ -10,9 +10,12 @@
     <div class="terminal-container">
         <!-- Terminal Header -->
         <div class="terminal-system-info">
-            SOURCEFUL ENERGY ANALYSIS SYSTEM v1.0<br>
-            COPYRIGHT (C) 2025 - ENERGI OPTIMERING AB<br>
-            READY.
+            <div class="title-box">
+            SOURCEFUL ENERGY ANALYSIS SYSTEM v1.0 - GNU/Linux x86_64<br>
+            Copyright (C) 2025 Sourceful Labs AB - Free Software Foundation<br>
+            Kernel: sourceful-4.20.0-energy #1 SMP PREEMPT<br>
+            sourceful@energy:~$
+        </div>
         </div>
 
         <!-- ASCII Art Logo -->
@@ -41,88 +44,73 @@
 
         <!-- Main Terminal Interface -->
         <div class="terminal-prompt terminal-text">
-            SYSTEM REDO FÖR ANALYS AV ELPRODUKTION OCH PRISER
+            ./energy_analyzer --mode=interactive --verbose
         </div>
 
         <div class="terminal-command-line terminal-text">
-            LADDA UPP DIN PRODUKTIONSFIL FÖR ANALYS...
+            System ready. Upload production data for negative price analysis...
         </div>
 
         <!-- Upload Form -->
-        <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data" class="terminal-form">
-            
-            <!-- File Upload -->
-            <label class="terminal-label">PRODUKTIONSFIL (CSV):</label>
-            <div class="terminal-file-area" id="uploadArea">
-                <input type="file" id="file" name="file" accept=".csv" required style="display: none;">
-                <div class="upload-content">
-                    DRA OCH SLÄPP DIN CSV-FIL HÄR<br>
-                    ELLER <span style="color: #ffaa00; cursor: pointer;" onclick="document.getElementById('file').click()">KLICKA FÖR ATT VÄLJA FIL</span><br>
-                    <small style="color: #666666;">MAX FILSTORLEK: 16MB</small>
-                </div>
-                <div class="file-info" style="display: none;">
-                    FIL LADDAD: <span id="fileName" style="color: #ffaa00;"></span><br>
-                    STORLEK: <span id="fileSize" style="color: #666666;"></span>
+        <!-- Terminal Session Steps -->
+        <form id="uploadForm" action="/" method="POST" enctype="multipart/form-data" style="display: none;">
+            <input type="hidden" id="emailHidden" name="email" required>
+            <select id="area" name="area" style="display: none;">
+                <option value="SE_4" selected>SE_4 - SYDSVERIGE</option>
+            </select>
+            <select id="currency" name="currency" style="display: none;">
+                <option value="SEK" selected>SEK - SVENSKA KRONOR</option>
+            </select>
+            <input type="hidden" id="start_date" name="start_date">
+            <input type="hidden" id="end_date" name="end_date">
+        </form>
+
+        <div class="terminal-session">
+            <!-- Step 1: File Upload -->
+            <div id="uploadStep" class="terminal-step">
+                <label class="terminal-label">PRODUKTIONSFIL (CSV):</label>
+                <div class="terminal-file-area" id="uploadArea">
+                    <input type="file" id="file" name="file" accept=".csv" required style="display: none;" form="uploadForm">
+                    <div class="upload-content">
+                        DRA OCH SLÄPP DIN CSV-FIL HÄR<br>
+                        ELLER <span style="color: #ffaa00; cursor: pointer;" onclick="document.getElementById('file').click()">KLICKA FÖR ATT VÄLJA FIL</span><br>
+                        <small style="color: #666666;">MAX FILSTORLEK: 16MB</small>
+                    </div>
+                    <div class="file-info" style="display: none;">
+                        FIL LADDAD: <span id="fileName" style="color: #ffaa00;"></span><br>
+                        STORLEK: <span id="fileSize" style="color: #666666;"></span>
+                    </div>
                 </div>
             </div>
 
-            <!-- Area Selection -->
-            <label class="terminal-label">ELOMRÅDE:</label>
-            <select class="terminal-select" id="area" name="area" required>
-                <option value="">VÄLJ ELOMRÅDE...</option>
-                <optgroup label="SVERIGE">
-                    <option value="SE_1">SE_1 - NORRA SVERIGE</option>
-                    <option value="SE_2">SE_2 - MELLERSTA SVERIGE</option>
-                    <option value="SE_3">SE_3 - SÖDRA SVERIGE</option>
-                    <option value="SE_4" selected>SE_4 - SYDSVERIGE</option>
-                </optgroup>
-                <optgroup label="NORGE">
-                    <option value="NO_1">NO_1 - ÖSTRA NORGE</option>
-                    <option value="NO_2">NO_2 - SÖDRA NORGE</option>
-                    <option value="NO_3">NO_3 - MELLERSTA NORGE</option>
-                    <option value="NO_4">NO_4 - NORRA NORGE</option>
-                    <option value="NO_5">NO_5 - VÄSTRA NORGE</option>
-                </optgroup>
-                <optgroup label="DANMARK">
-                    <option value="DK_1">DK_1 - VÄSTRA DANMARK</option>
-                    <option value="DK_2">DK_2 - ÖSTRA DANMARK</option>
-                </optgroup>
-                <optgroup label="FINLAND">
-                    <option value="FI">FI - FINLAND</option>
-                </optgroup>
-            </select>
+            <!-- Step 2: Email Terminal Prompt (Hidden initially) -->
+            <div id="emailStep" class="terminal-step" style="display: none;">
+                <div class="terminal-prompt">sourceful@energy-analyzer:~$ echo "FIL MOTTAGEN"</div>
+                <div class="terminal-command-line terminal-text">
+                    FIL MOTTAGEN. FÖR ANALYS SKRIV IN DIN E-POST ADRESS:
+                </div>
+                <div class="terminal-input-line">
+                    <span class="terminal-prompt-char">$</span>
+                    <input type="email" id="emailInput" class="terminal-text-input" placeholder="din.epost@exempel.se" autocomplete="email">
+                    <button type="button" id="emailEnterBtn" class="terminal-enter-btn">[ENTER]</button>
+                </div>
+                <div class="terminal-text" style="color: #666666; margin-top: 10px; font-size: 12px;">
+                    Vi sparar din e-post för att skicka analysen och framtida uppdateringar.
+                </div>
+            </div>
 
-            <!-- Currency Selection -->
-            <label class="terminal-label">VALUTA:</label>
-            <select class="terminal-select" id="currency" name="currency">
-                <option value="SEK" selected>SEK - SVENSKA KRONOR</option>
-                <option value="EUR">EUR - EURO</option>
-                <option value="USD">USD - US DOLLAR</option>
-                <option value="NOK">NOK - NORSKA KRONOR</option>
-                <option value="DKK">DKK - DANSKA KRONOR</option>
-                <option value="GBP">GBP - BRITTISKA PUND</option>
-            </select>
-
-            <!-- Date Range -->
-            <label class="terminal-label">STARTDATUM (VALFRITT):</label>
-            <input type="date" class="terminal-input" id="start_date" name="start_date" placeholder="YYYY-MM-DD">
-
-            <label class="terminal-label">SLUTDATUM (VALFRITT):</label>
-            <input type="date" class="terminal-input" id="end_date" name="end_date" placeholder="YYYY-MM-DD">
-
-            <!-- Submit Button -->
-            <button type="submit" class="terminal-button" id="submitBtn">
-                ANALYSERA [ENTER]
-            </button>
-
-            <!-- Progress Bar -->
-            <div class="terminal-progress" id="uploadProgress" style="display: none;">
-                <div class="terminal-text">LADDAR UPP OCH ANALYSERAR<span class="terminal-loading"></span></div>
+            <!-- Step 3: Processing (Hidden initially) -->
+            <div id="processingStep" class="terminal-step" style="display: none;">
+                <div class="terminal-prompt">sourceful@energy-analyzer:~$ ./run_analysis.sh --verbose</div>
+                <div class="terminal-command-line terminal-text">
+                    STARTAR ANALYS<span class="terminal-loading"></span>
+                </div>
                 <div class="terminal-progress-bar">
                     <div class="terminal-progress-fill" id="progressFill"></div>
                 </div>
+                <div class="terminal-text" id="progressText">LADDAR PRISDATA FRÅN ENTSO-E...</div>
             </div>
-        </form>
+        </div>
 
         <!-- Terminal Footer -->
         <div class="terminal-divider"></div>
@@ -134,10 +122,23 @@
         <div class="terminal-text" style="text-align: center; margin-top: 20px;">
             <span class="cursor"></span>
         </div>
+        
+        <div class="terminal-text" style="text-align: center; margin-top: 15px; color: #555555; font-size: 12px;">
+            Sourceful Labs AB • Made in Kalmar, Sweden • Sourceful Energy™
+        </div>
     </div>
 
     <!-- Terminal JavaScript -->
     <script>
+        // Terminal Session Management
+        const uploadStep = document.getElementById('uploadStep');
+        const emailStep = document.getElementById('emailStep');
+        const processingStep = document.getElementById('processingStep');
+        const emailInput = document.getElementById('emailInput');
+        const emailEnterBtn = document.getElementById('emailEnterBtn');
+        const uploadForm = document.getElementById('uploadForm');
+        const emailHidden = document.getElementById('emailHidden');
+
         // File upload handling
         const fileInput = document.getElementById('file');
         const uploadArea = document.getElementById('uploadArea');
@@ -145,10 +146,10 @@
         const fileSize = document.getElementById('fileSize');
         const uploadContent = uploadArea.querySelector('.upload-content');
         const fileInfo = uploadArea.querySelector('.file-info');
-        const form = document.getElementById('uploadForm');
-        const submitBtn = document.getElementById('submitBtn');
-        const progressArea = document.getElementById('uploadProgress');
         const progressFill = document.getElementById('progressFill');
+        const progressText = document.getElementById('progressText');
+
+        let selectedFile = null;
 
         // Drag and drop functionality
         uploadArea.addEventListener('dragover', (e) => {
@@ -168,7 +169,11 @@
             if (files.length > 0) {
                 const file = files[0];
                 if (file.name.toLowerCase().endsWith('.csv')) {
-                    fileInput.files = files;
+                    selectedFile = file;
+                    // Sätt filen i det riktiga file input
+                    const dt = new DataTransfer();
+                    dt.items.add(file);
+                    fileInput.files = dt.files;
                     handleFileSelect(file);
                 } else {
                     alert('FEL: ENDAST CSV-FILER TILLÅTNA');
@@ -179,7 +184,8 @@
         // File input change
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
-                handleFileSelect(e.target.files[0]);
+                selectedFile = e.target.files[0];
+                handleFileSelect(selectedFile);
             }
         });
 
@@ -188,6 +194,12 @@
             fileSize.textContent = formatFileSize(file.size);
             uploadContent.style.display = 'none';
             fileInfo.style.display = 'block';
+            
+            // Show email step after file selection
+            setTimeout(() => {
+                emailStep.style.display = 'block';
+                emailInput.focus();
+            }, 500);
         }
 
         function formatFileSize(bytes) {
@@ -198,59 +210,105 @@
             return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
         }
 
-        // Form submission with progress
-        form.addEventListener('submit', (e) => {
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'ANALYSERAR...';
-            progressArea.style.display = 'block';
+        // Email input handling
+        function submitEmail() {
+            const email = emailInput.value.trim();
+            if (!email || !email.includes('@')) {
+                alert('FELAKTIG E-POST ADRESS');
+                emailInput.focus();
+                return;
+            }
+
+            // Kontrollera att fil är vald
+            if (!selectedFile || !fileInput.files.length) {
+                alert('INGEN FIL VALD');
+                return;
+            }
+
+            // Store email in hidden form
+            emailHidden.value = email;
             
-            // Simulate progress
+            // Show processing step
+            processingStep.style.display = 'block';
+            
+            // Start progress animation
             let progress = 0;
+            const progressMessages = [
+                'LADDAR PRISDATA FRÅN ENTSO-E...',
+                'ANALYSERAR PRODUKTIONSDATA...',
+                'BERÄKNAR NEGATIVA PRISER...',
+                'GENERERAR AI-FÖRKLARING...',
+                'SLUTFÖR ANALYS...'
+            ];
+            let messageIndex = 0;
+            
             const progressInterval = setInterval(() => {
                 progress += Math.random() * 15;
-                if (progress >= 90) progress = 90;
+                if (progress >= 95) progress = 95;
                 progressFill.style.width = progress + '%';
-            }, 200);
+                
+                // Update progress message
+                if (progress > (messageIndex + 1) * 20 && messageIndex < progressMessages.length - 1) {
+                    messageIndex++;
+                    progressText.textContent = progressMessages[messageIndex];
+                }
+            }, 300);
 
-            // Clear interval when form actually submits
+            // Submit form after animation
             setTimeout(() => {
                 clearInterval(progressInterval);
                 progressFill.style.width = '100%';
+                progressText.textContent = 'SKICKAR TILL ANALYS...';
+                
+                // Submit the actual form
+                uploadForm.submit();
             }, 3000);
+        }
+
+        // Email enter button click
+        emailEnterBtn.addEventListener('click', submitEmail);
+
+        // Email input enter key
+        emailInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                submitEmail();
+            }
         });
 
         // Terminal typing effect for cursor
         const cursor = document.querySelector('.cursor');
-        setInterval(() => {
-            cursor.style.opacity = cursor.style.opacity === '0' ? '1' : '0';
-        }, 500);
-
-        // Add some retro sound effects (optional)
-        function playBeep() {
-            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
-            const oscillator = audioContext.createOscillator();
-            const gainNode = audioContext.createGain();
-            
-            oscillator.connect(gainNode);
-            gainNode.connect(audioContext.destination);
-            
-            oscillator.frequency.value = 800;
-            oscillator.type = 'square';
-            
-            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
-            
-            oscillator.start(audioContext.currentTime);
-            oscillator.stop(audioContext.currentTime + 0.1);
+        if (cursor) {
+            setInterval(() => {
+                cursor.style.opacity = cursor.style.opacity === '0' ? '1' : '0';
+            }, 500);
         }
 
-        // Play beep on button hover (optional)
-        submitBtn.addEventListener('mouseenter', () => {
+        // Terminal beep sound effect (optional)
+        function playTerminalBeep() {
             try {
-                // playBeep(); // Uncomment for retro sound effects
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.frequency.value = 800;
+                oscillator.type = 'square';
+                
+                gainNode.gain.setValueAtTime(0.1, audioContext.currentTime);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + 0.1);
             } catch (e) {
                 // Ignore audio errors
             }
+        }
+
+        // Play beep on important actions
+        emailEnterBtn.addEventListener('mouseenter', () => {
+            // playTerminalBeep(); // Uncomment for retro sound
         });
     </script>
 </body>

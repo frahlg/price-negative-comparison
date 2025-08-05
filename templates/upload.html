@@ -1,0 +1,276 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LADDA UPP DATA - SOURCEFUL ENERGY TERMINAL</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
+</head>
+<body>
+    <div class="terminal-container">
+        <!-- Terminal Header -->
+        <div class="terminal-system-info">
+            SOURCEFUL ENERGY ANALYSIS SYSTEM v1.0<br>
+            COPYRIGHT (C) 2025 - SOURCEFUL LABS AB<br>
+            DATALADDNING OCH ANALYS<br>
+            READY.
+        </div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="terminal-{{ 'error' if category == 'error' else 'success' if category == 'success' else 'info' }}">
+                        {{ category.upper() }}: {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- ASCII Art Logo -->
+        <div class="terminal-ascii">
+██╗   ██╗██████╗ ██╗      ██████╗  █████╗ ██████╗ 
+██║   ██║██╔══██╗██║     ██╔═══██╗██╔══██╗██╔══██╗
+██║   ██║██████╔╝██║     ██║   ██║███████║██║  ██║
+██║   ██║██╔═══╝ ██║     ██║   ██║██╔══██║██║  ██║
+╚██████╔╝██║     ███████╗╚██████╔╝██║  ██║██████╔╝
+ ╚═════╝ ╚═╝     ╚══════╝ ╚═════╝ ╚═╝  ╚═╝╚═════╝ 
+                DATA UPLOAD MODE
+        </div>
+
+        <div class="terminal-divider"></div>
+
+        <!-- Upload Instructions -->
+        <div class="terminal-prompt terminal-text">
+            INSTRUKTIONER: LADDA UPP DIN CSV-FIL MED PRODUKTIONSDATA
+        </div>
+
+        <div class="terminal-command-line terminal-text">
+            FILFORMAT: DATUM,PRODUKTION (kWh)
+        </div>
+        <div class="terminal-command-line terminal-text">
+            EXEMPEL: 2024-01-01 12:00,5.2
+        </div>
+
+        <!-- Upload Form -->
+        <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data" class="terminal-form">
+            
+            <!-- Email Input -->
+            <label class="terminal-label">E-POST (KRÄVS FÖR ANALYS):</label>
+            <input type="email" class="terminal-input" id="email" name="email" placeholder="din.epost@exempel.se" required>
+            <div class="terminal-text" style="color: #666666; font-size: 12px; margin-bottom: 20px;">
+                Vi sparar din e-post för att kunna skicka dig analysen och framtida uppdateringar.
+            </div>
+
+            <!-- File Upload -->
+            <label class="terminal-label">PRODUKTIONSFIL (CSV):</label>
+            <div class="terminal-file-area" id="uploadArea">
+                <input type="file" id="file" name="file" accept=".csv" required style="display: none;">
+                <div class="upload-content">
+                    DRA OCH SLÄPP DIN CSV-FIL HÄR<br>
+                    ELLER <span style="color: #ffaa00; cursor: pointer;" onclick="document.getElementById('file').click()">KLICKA FÖR ATT VÄLJA FIL</span><br>
+                    <small style="color: #666666;">MAX FILSTORLEK: 16MB</small>
+                </div>
+                <div class="file-info" style="display: none;">
+                    FIL LADDAD: <span id="fileName" style="color: #ffaa00;"></span><br>
+                    STORLEK: <span id="fileSize" style="color: #666666;"></span>
+                </div>
+            </div>
+
+            <!-- Area Selection -->
+            <label class="terminal-label">ELOMRÅDE:</label>
+            <select class="terminal-select" id="area" name="area" required>
+                <option value="">VÄLJ ELOMRÅDE...</option>
+                <optgroup label="SVERIGE">
+                    <option value="SE_1">SE_1 - NORRA SVERIGE</option>
+                    <option value="SE_2">SE_2 - MELLERSTA SVERIGE</option>
+                    <option value="SE_3">SE_3 - SÖDRA SVERIGE</option>
+                    <option value="SE_4" selected>SE_4 - SYDSVERIGE</option>
+                </optgroup>
+                <optgroup label="NORGE">
+                    <option value="NO_1">NO_1 - ÖSTRA NORGE</option>
+                    <option value="NO_2">NO_2 - SÖDRA NORGE</option>
+                    <option value="NO_3">NO_3 - MELLERSTA NORGE</option>
+                    <option value="NO_4">NO_4 - NORRA NORGE</option>
+                    <option value="NO_5">NO_5 - VÄSTRA NORGE</option>
+                </optgroup>
+                <optgroup label="DANMARK">
+                    <option value="DK_1">DK_1 - VÄSTRA DANMARK</option>
+                    <option value="DK_2">DK_2 - ÖSTRA DANMARK</option>
+                </optgroup>
+                <optgroup label="FINLAND">
+                    <option value="FI">FI - FINLAND</option>
+                </optgroup>
+            </select>
+
+            <!-- Currency Selection -->
+            <label class="terminal-label">VALUTA:</label>
+            <select class="terminal-select" id="currency" name="currency">
+                <option value="SEK" selected>SEK - SVENSKA KRONOR</option>
+                <option value="EUR">EUR - EURO</option>
+                <option value="USD">USD - US DOLLAR</option>
+                <option value="NOK">NOK - NORSKA KRONOR</option>
+                <option value="DKK">DKK - DANSKA KRONOR</option>
+                <option value="GBP">GBP - BRITTISKA PUND</option>
+            </select>
+
+            <!-- Date Range -->
+            <label class="terminal-label">STARTDATUM (VALFRITT):</label>
+            <input type="date" class="terminal-input" id="start_date" name="start_date" placeholder="YYYY-MM-DD">
+
+            <label class="terminal-label">SLUTDATUM (VALFRITT):</label>
+            <input type="date" class="terminal-input" id="end_date" name="end_date" placeholder="YYYY-MM-DD">
+
+            <!-- Submit Button -->
+            <button type="submit" class="terminal-button" id="submitBtn">
+                STARTA ANALYS [ENTER]
+            </button>
+
+            <!-- Progress Bar -->
+            <div class="terminal-progress" id="uploadProgress" style="display: none;">
+                <div class="terminal-text">LADDAR UPP OCH ANALYSERAR<span class="terminal-loading"></span></div>
+                <div class="terminal-progress-bar">
+                    <div class="terminal-progress-fill" id="progressFill"></div>
+                </div>
+            </div>
+        </form>
+
+        <div class="terminal-divider"></div>
+
+        <!-- Help Information -->
+        <div class="terminal-prompt">HJÄLP:</div>
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">FILFORMAT:</span>
+            <span class="terminal-metric-value">CSV MED KOMMATECKEN ELLER SEMIKOLON</span>
+        </div>
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">KOLUMNER:</span>
+            <span class="terminal-metric-value">DATUM/TID, PRODUKTION I kWh</span>
+        </div>
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">DATUMFORMAT:</span>
+            <span class="terminal-metric-value">YYYY-MM-DD HH:MM ELLER LIKNANDE</span>
+        </div>
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">KODNING:</span>
+            <span class="terminal-metric-value">UTF-8, ISO-8859-1 ELLER CP1252</span>
+        </div>
+
+        <div class="terminal-divider"></div>
+
+        <!-- Actions -->
+        <div class="terminal-prompt">KOMMANDOALTERNATIV:</div>
+        <div style="margin: 20px 0;">
+            <a href="/" class="terminal-button" style="display: inline-block; text-decoration: none; margin-right: 20px;">
+                TILLBAKA TILL HUVUDMENY
+            </a>
+            <a href="/status" class="terminal-button" style="display: inline-block; text-decoration: none;">
+                SYSTEMSTATUS
+            </a>
+        </div>
+
+        <!-- Terminal Footer -->
+        <div class="terminal-command-line terminal-text" style="text-align: center; color: #666666; margin-top: 40px;">
+            KLAR FÖR DATALADDNING - SOURCEFUL ENERGY ZAP VÄNTAR
+        </div>
+
+        <div class="terminal-text" style="text-align: center; margin-top: 20px;">
+            <span class="cursor"></span>
+        </div>
+        
+        <div class="terminal-text" style="text-align: center; margin-top: 15px; color: #555555; font-size: 12px;">
+            Sourceful Labs AB • Made in Kalmar, Sweden • Sourceful Energy™
+        </div>
+    </div>
+
+    <!-- Terminal JavaScript -->
+    <script>
+        // File upload handling
+        const fileInput = document.getElementById('file');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const uploadContent = uploadArea.querySelector('.upload-content');
+        const fileInfo = uploadArea.querySelector('.file-info');
+        const form = document.getElementById('uploadForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const progressArea = document.getElementById('uploadProgress');
+        const progressFill = document.getElementById('progressFill');
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.toLowerCase().endsWith('.csv')) {
+                    fileInput.files = files;
+                    handleFileSelect(file);
+                } else {
+                    alert('FEL: ENDAST CSV-FILER TILLÅTNA');
+                }
+            }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            uploadContent.style.display = 'none';
+            fileInfo.style.display = 'block';
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 BYTES';
+            const k = 1024;
+            const sizes = ['BYTES', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Form submission with progress
+        form.addEventListener('submit', (e) => {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'ANALYSERAR...';
+            progressArea.style.display = 'block';
+            
+            // Simulate progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress >= 90) progress = 90;
+                progressFill.style.width = progress + '%';
+            }, 200);
+
+            // Clear interval when form actually submits
+            setTimeout(() => {
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+            }, 3000);
+        });
+
+        // Terminal typing effect for cursor
+        const cursor = document.querySelector('.cursor');
+        setInterval(() => {
+            cursor.style.opacity = cursor.style.opacity === '0' ? '1' : '0';
+        }, 500);
+    </script>
+</body>
+</html>

@@ -10,10 +10,11 @@
     <div class="terminal-container">
         <!-- Terminal Header -->
         <div class="terminal-system-info">
-            sourceful@energy-analyzer:~$ ./energy_analysis --complete<br>
-            Sourceful Energy Analysis System v1.0 - GNU/Linux x86_64<br>
-            Copyright (C) 2025 Sourceful Labs AB<br>
-            Analysis completed successfully.
+            SOURCEFUL ENERGY ANALYSIS SYSTEM v1.0 - GNU/Linux x86_64<br>
+            Copyright (C) 2025 Sourceful Labs AB - Free Software Foundation<br>
+            Kernel: sourceful-4.20.0-energy #1 SMP PREEMPT<br>
+            Analysis completed successfully.<br>
+            sourceful@energy:~$
         </div>
 
         <!-- Flash Messages -->
@@ -42,7 +43,7 @@
 
         <!-- Analysis Period Info -->
         {% if results and results.metadata %}
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ ls -la /proc/energy/analysis_period</div>
+        <div class="terminal-prompt">ls -la /proc/energy/analysis_period</div>
         <div class="terminal-metric">
             <span class="terminal-metric-label">START_DATE:</span>
             <span class="terminal-metric-value">{{ results.metadata.start_date[:10] }}</span>
@@ -64,8 +65,8 @@
         <!-- AI Explanation Section -->
         {% if results and results.ai_explanation %}
         <div class="terminal-divider"></div>
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /var/log/energy/ai_analysis.log</div>
-        <div class="terminal-text" style="background: rgba(0, 255, 0, 0.1); padding: 20px; margin: 15px 0; border-left: 4px solid #00ff00; color: #00ff00; font-size: 18px; line-height: 1.7;">
+        <div class="terminal-prompt">cat /var/log/energy/ai_analysis.log</div>
+        <div class="terminal-text" style="background: rgba(0, 255, 0, 0.1); padding: 15px; margin: 10px 0; border-left: 3px solid #00ff00; color: #00ff00; font-size: 16px; line-height: 1.6;">
             {{ results.ai_explanation | safe }}
         </div>
         {% endif %}
@@ -73,7 +74,7 @@
         <div class="terminal-divider"></div>
 
         <!-- Key Metrics -->
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /proc/energy/metrics</div>
+        <div class="terminal-prompt">cat /proc/energy/metrics</div>
         
         {% if results and results.analysis %}
         <div class="terminal-metric">
@@ -99,7 +100,7 @@
         <div class="terminal-divider"></div>
 
         <!-- Negative Price Analysis -->
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ grep -E "NEGATIVE|LOSS" /var/log/energy/price_analysis.log</div>
+        <div class="terminal-prompt">grep -E "NEGATIVE|LOSS" /var/log/energy/price_analysis.log</div>
         
         <div class="terminal-metric">
             <span class="terminal-metric-label">PRODUCTION_NEG_PRICES:</span>
@@ -116,12 +117,17 @@
             <span class="terminal-metric-label">DIRECT_LOSS:</span>
             <span class="terminal-metric-value terminal-error">{{ "%.2f"|format(results.analysis.negative_export_cost_abs_sek) }} {{ results.metadata.currency }}</span>
         </div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">💡 BATTERY_SAVINGS_POTENTIAL:</span>
+            <span class="terminal-metric-value">{{ "%.2f"|format(results.analysis.production_during_negative_prices * (results.analysis.price_mean_eur_mwh * results.metadata.currency_rate / 1000)) }} {{ results.metadata.currency }} (vid lagring till genomsnittspris)</span>
+        </div>
         {% endif %}
 
         <div class="terminal-divider"></div>
 
         <!-- Price Statistics -->
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /proc/energy/price_stats</div>
+        <div class="terminal-prompt">cat /proc/energy/price_stats</div>
         
         <div class="terminal-metric">
             <span class="terminal-metric-label">MAX_PRICE:</span>
@@ -141,16 +147,16 @@
         <div class="terminal-divider"></div>
 
         <!-- ASCII Negative Price Chart -->
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /proc/negative_prices/production_analysis</div>
+        <div class="terminal-prompt">cat /proc/negative_prices/production_analysis</div>
         
-        <div class="terminal-text" style="font-family: 'VT323', monospace; font-size: 20px; line-height: 1.6; margin: 20px 0; background: rgba(0, 255, 0, 0.05); padding: 25px; border: 2px solid #004400;">
-            <div id="negativePriceChart" style="white-space: pre-wrap; word-wrap: break-word; color: #00ff00; overflow-wrap: break-word; text-shadow: 0 0 3px currentColor;">
+        <div class="terminal-text" style="font-family: 'VT323', monospace; font-size: 18px; line-height: 1.5; margin: 15px 0; background: rgba(0, 255, 0, 0.05); padding: 20px; border: 1px solid #004400;">
+            <div id="negativePriceChart" style="white-space: pre-wrap; word-wrap: break-word; color: #00ff00; overflow-wrap: break-word;">
                 Loading production analysis from /proc/energy/negative_prices...
             </div>
         </div>
 
-        <div class="terminal-text" style="font-size: 16px; color: #888888; margin-bottom: 20px;">
-            # LEGEND: █ = NEGATIVA PRISER, ░ = POSITIVA PRISER
+        <div class="terminal-text" style="font-size: 14px; color: #666666; margin-bottom: 20px;">
+            # LEGEND: █ = NEG.PROD, ▓ = POS.PROD, ░ = NO_DATA
         </div>
 
         {% endif %}
@@ -168,7 +174,7 @@
         <div class="terminal-divider"></div>
 
         <!-- Sourceful Energy Pitch -->
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /opt/sourceful/marketing/zap_info.txt</div>
+        <div class="terminal-prompt">cat /opt/sourceful/marketing/zap_info.txt</div>
         
         <div class="terminal-text" style="background: rgba(255, 170, 0, 0.1); padding: 15px; margin: 10px 0; border-left: 3px solid #ffaa00;">
             <strong style="color: #ffaa00;">SOURCEFUL ENERGY ZAP™</strong> kan hjälpa dig maximera dina intäkter genom:<br><br>
@@ -189,7 +195,7 @@
         <div class="terminal-divider"></div>
 
         <!-- Actions -->
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ ls /usr/bin/energy_tools</div>
+        <div class="terminal-prompt">ls /usr/bin/energy_tools</div>
         <div style="margin: 20px 0;">
             <a href="/" class="terminal-button" style="display: inline-block; text-decoration: none; margin-right: 20px;">
                 NEW_ANALYSIS
@@ -269,23 +275,45 @@
             
             chart += `TOTAL PRODUKTION: ${totalProduction.toFixed(1)} kWh\n\n`;
             
-            // Stor horisontell "tårtgraf" med produktionsfördelning - tydligare symboler
+            // Stor horisontell "tårtgraf" med produktionsfördelning
             const barWidth = 50;
             const negativeBars = Math.floor(barWidth * negativePercentage);
             const positiveBars = barWidth - negativeBars;
             
             chart += 'PRODUKTIONSFÖRDELNING:\n';
             chart += '┌' + '─'.repeat(barWidth) + '┐\n';
-            chart += '│' + '█'.repeat(negativeBars) + '░'.repeat(positiveBars) + '│\n';  // Använder ░ för tydligare kontrast
+            chart += '│' + '█'.repeat(negativeBars) + '▓'.repeat(positiveBars) + '│\n';
             chart += '└' + '─'.repeat(barWidth) + '┘\n';
             chart += `  NEGATIV: ${negativeProduction.toFixed(1)} kWh (${(negativePercentage*100).toFixed(1)}%)\n`;
             chart += `  POSITIV: ${positivePriceProduction.toFixed(1)} kWh (${(positivePercentage*100).toFixed(1)}%)\n\n`;
             
-            // Ekonomisk påverkan - förenklad
+            // Vertikal representation för tydligare översikt
+            chart += 'FÖRDELNING PER KATEGORI:\n\n';
+            
+            const maxBarLength = 30;
+            const negBar = Math.floor(maxBarLength * negativePercentage);
+            const posBar = Math.floor(maxBarLength * positivePercentage);
+            
+            chart += `NEG.PRISER: ${'█'.repeat(negBar).padEnd(maxBarLength, '.')} ${(negativePercentage*100).toFixed(1)}%\n`;
+            chart += `POS.PRISER: ${'▓'.repeat(posBar).padEnd(maxBarLength, '.')} ${(positivePercentage*100).toFixed(1)}%\n\n`;
+            
+            // Ekonomisk påverkan
             if (negativeCost > 0) {
                 chart += 'EKONOMISK ANALYS:\n';
-                chart += `DIREKT FÖRLUST:      ${negativeCost.toFixed(0)} SEK\n\n`;
+                chart += `DIREKT FÖRLUST:      ${negativeCost.toFixed(0)} SEK\n`;
+                
+                const avgLossPerKwh = negativeCost / negativeProduction;
+                chart += `FÖRLUST PER kWh:     ${avgLossPerKwh.toFixed(3)} SEK\n\n`;
+                
+                // Batteripotential - fokus på att spara "gratis" el
+                const batteryPotential = negativeProduction * 0.5; // Realistisk genomsnittspris
+                chart += `💡 BATTERIPOTENTIAL:\n`;
+                chart += `SPARBAR ENERGI:      ${negativeProduction.toFixed(1)} kWh\n`;
+                chart += `POTENTIELL VINST:    ${batteryPotential.toFixed(0)} SEK\n`;
+                chart += `   (vid försäljning till 0.50 SEK/kWh genomsnitt)\n`;
             }
+            
+            chart += '\n';
             
             // Rekommendationer baserat på andel
             if (negativePercentage > 0.2) {
