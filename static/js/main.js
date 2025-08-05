@@ -65,12 +65,24 @@ class SourcefulEnergy {
      * Setup event listeners for interactive elements
      */
     setupEventListeners() {
+        // Upload form handling
+        this.setupUploadForm();
+        
         // Enhanced upload area interactions
-        const uploadPlaceholder = document.querySelector('.upload-placeholder');
-        if (uploadPlaceholder) {
-            uploadPlaceholder.addEventListener('dragover', this.handleDragOver.bind(this));
-            uploadPlaceholder.addEventListener('dragleave', this.handleDragLeave.bind(this));
-            uploadPlaceholder.addEventListener('drop', this.handleDrop.bind(this));
+        const uploadArea = document.querySelector('#uploadArea');
+        if (uploadArea) {
+            uploadArea.addEventListener('dragover', this.handleDragOver.bind(this));
+            uploadArea.addEventListener('dragleave', this.handleDragLeave.bind(this));
+            uploadArea.addEventListener('drop', this.handleFileDrop.bind(this));
+            uploadArea.addEventListener('click', () => {
+                document.getElementById('file').click();
+            });
+        }
+
+        // File input change handler
+        const fileInput = document.getElementById('file');
+        if (fileInput) {
+            fileInput.addEventListener('change', this.handleFileSelect.bind(this));
         }
 
         // Feature card hover enhancements
@@ -112,12 +124,168 @@ class SourcefulEnergy {
     }
 
     /**
+     * Setup upload form functionality
+     */
+    setupUploadForm() {
+        const uploadForm = document.getElementById('uploadForm');
+        if (uploadForm) {
+            uploadForm.addEventListener('submit', this.handleFormSubmit.bind(this));
+        }
+    }
+
+    /**
+     * Handle form submission
+     */
+    async handleFormSubmit(e) {
+        e.preventDefault();
+        
+        const form = e.target;
+        const formData = new FormData(form);
+        const submitBtn = document.getElementById('submitBtn');
+        const progressBar = document.getElementById('uploadProgress');
+        
+        // Validate form
+        if (!this.validateForm(form)) {
+            return;
+        }
+        
+        // Show progress and disable button
+        submitBtn.disabled = true;
+        submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>Analyzing...';
+        progressBar.classList.remove('d-none');
+        
+        try {
+            // Submit form directly (no AJAX needed for file upload with redirect)
+            form.submit();
+        } catch (error) {
+            console.error('Upload error:', error);
+            this.showNotification('Upload failed. Please try again.', 'danger');
+            
+            // Reset button
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="bi bi-upload me-2"></i>Upload & Analyze';
+            progressBar.classList.add('d-none');
+        }
+    }
+
+    /**
+     * Validate upload form
+     */
+    validateForm(form) {
+        let isValid = true;
+        
+        // Check file
+        const fileInput = form.querySelector('#file');
+        if (!fileInput.files.length) {
+            this.showFieldError(fileInput, 'Please select a CSV file.');
+            isValid = false;
+        } else {
+            this.clearFieldError(fileInput);
+        }
+        
+        // Check area
+        const areaSelect = form.querySelector('#area');
+        if (!areaSelect.value) {
+            this.showFieldError(areaSelect, 'Please select an electricity area.');
+            isValid = false;
+        } else {
+            this.clearFieldError(areaSelect);
+        }
+        
+        return isValid;
+    }
+
+    /**
+     * Show field validation error
+     */
+    showFieldError(field, message) {
+        field.classList.add('is-invalid');
+        const feedback = field.nextElementSibling;
+        if (feedback && feedback.classList.contains('invalid-feedback')) {
+            feedback.textContent = message;
+        }
+    }
+
+    /**
+     * Clear field validation error
+     */
+    clearFieldError(field) {
+        field.classList.remove('is-invalid');
+    }
+
+    /**
+     * Handle file selection via input
+     */
+    handleFileSelect(e) {
+        const file = e.target.files[0];
+        if (file) {
+            this.displaySelectedFile(file);
+        }
+    }
+
+    /**
+     * Handle file drop
+     */
+    handleFileDrop(e) {
+        e.preventDefault();
+        this.handleDragLeave(e);
+        
+        const files = Array.from(e.dataTransfer.files);
+        if (files.length > 0) {
+            const file = files[0];
+            if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
+                document.getElementById('file').files = e.dataTransfer.files;
+                this.displaySelectedFile(file);
+            } else {
+                this.showNotification('Please select a CSV file.', 'warning');
+            }
+        }
+    }
+
+    /**
+     * Display selected file information
+     */
+    displaySelectedFile(file) {
+        const uploadArea = document.getElementById('uploadArea');
+        const uploadContent = uploadArea.querySelector('.upload-content');
+        const fileInfo = uploadArea.querySelector('.file-info');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        
+        // Hide upload prompt, show file info
+        uploadContent.classList.add('d-none');
+        fileInfo.classList.remove('d-none');
+        
+        // Display file details
+        fileName.textContent = file.name;
+        fileSize.textContent = this.formatFileSize(file.size);
+        
+        // Style upload area as selected
+        uploadArea.style.borderColor = 'var(--bs-success)';
+        uploadArea.style.backgroundColor = 'rgba(25, 135, 84, 0.05)';
+        
+        // Clear any previous validation errors
+        this.clearFieldError(document.getElementById('file'));
+    }
+
+    /**
+     * Format file size for display
+     */
+    formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    /**
      * Handle drag over event for upload area
      */
     handleDragOver(e) {
         e.preventDefault();
-        e.currentTarget.style.borderColor = 'var(--sourceful-primary)';
-        e.currentTarget.style.backgroundColor = 'rgba(0, 102, 204, 0.05)';
+        e.currentTarget.style.borderColor = 'var(--bs-primary)';
+        e.currentTarget.style.backgroundColor = 'rgba(13, 110, 253, 0.05)';
     }
 
     /**
@@ -127,20 +295,6 @@ class SourcefulEnergy {
         e.preventDefault();
         e.currentTarget.style.borderColor = '#dee2e6';
         e.currentTarget.style.backgroundColor = '#f8f9fa';
-    }
-
-    /**
-     * Handle drop event for upload area (placeholder for future functionality)
-     */
-    handleDrop(e) {
-        e.preventDefault();
-        this.handleDragLeave(e);
-        
-        // Future: Handle file upload
-        const files = Array.from(e.dataTransfer.files);
-        if (files.length > 0) {
-            this.showComingSoonMessage();
-        }
     }
 
     /**

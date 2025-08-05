@@ -15,7 +15,7 @@ Web Interface:
     GET /status - Application status and health
 """
 
-from flask import Flask, request, jsonify, make_response, render_template, Blueprint
+from flask import Flask, request, jsonify, make_response, render_template, Blueprint, session, flash, redirect
 import pandas as pd
 import tempfile
 import os
@@ -1569,15 +1569,130 @@ def status():
         logger.error(f"Status page error: {e}")
         return render_template('status.html', status={'service': 'Sourceful Energy', 'status': 'error'})
 
+@app.route('/results')
+def results_page():
+    """Display analysis results."""
+    if 'analysis_results' not in session:
+        flash('No analysis results found. Please upload a file first.', 'error')
+        return redirect('/')
+    
+    results = session['analysis_results']
+    return render_template('results.html', 
+                         results=results, 
+                         page_title="Analysis Results")
+
 @app.route('/upload', methods=['GET', 'POST'])
 def upload_page():
     """Upload page for production data analysis."""
     if request.method == 'GET':
         return render_template('upload.html', page_title="Upload & Analyze")
     
-    # Handle file upload and analysis
-    # This will be implemented when we enable the upload functionality
-    return jsonify({'message': 'Upload functionality coming soon!'})
+    # Handle POST - File upload and analysis
+    try:
+        # Validate file upload
+        if 'file' not in request.files:
+            flash('No file provided', 'error')
+            return render_template('upload.html', page_title="Upload & Analyze")
+        
+        file = request.files['file']
+        if file.filename == '':
+            flash('No file selected', 'error')
+            return render_template('upload.html', page_title="Upload & Analyze")
+        
+        if not allowed_file(file.filename):
+            flash('Invalid file type. Only CSV files are allowed.', 'error')
+            return render_template('upload.html', page_title="Upload & Analyze")
+        
+        # Get form parameters
+        area = request.form.get('area')
+        if not area:
+            flash('Please select an electricity area.', 'error')
+            return render_template('upload.html', page_title="Upload & Analyze")
+        
+        currency = request.form.get('currency', 'SEK').upper()
+        start_date = request.form.get('start_date')
+        end_date = request.form.get('end_date')
+        
+        # Validate currency
+        try:
+            currency_rate = get_currency_rate(currency)
+        except ValueError as e:
+            flash(f'Currency error: {str(e)}', 'error')
+            return render_template('upload.html', page_title="Upload & Analyze")
+        
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(mode='w+b', suffix='.csv', delete=False) as temp_file:
+            file.save(temp_file.name)
+            temp_filename = temp_file.name
+        
+        try:
+            # Create analysis components
+            price_fetcher = PriceFetcher(db_path=SECURE_DB_PATH)
+            production_loader = ProductionLoader()
+            analyzer = PriceAnalyzer()
+            
+            # Load production data
+            production_df = production_loader.load_production_data(temp_filename)
+            
+            # Determine date range
+            production_start = pd.Timestamp(production_df.index.min(), tz='Europe/Stockholm')
+            production_end = pd.Timestamp(production_df.index.max(), tz='Europe/Stockholm')
+            
+            if start_date:
+                start_date = pd.Timestamp(start_date, tz='Europe/Stockholm')
+                if start_date > production_start:
+                    production_df = production_df[production_df.index >= start_date.tz_localize(None)]
+            else:
+                start_date = production_start
+                
+            if end_date:
+                end_date = pd.Timestamp(end_date, tz='Europe/Stockholm')
+                if end_date < production_end:
+                    production_df = production_df[production_df.index <= end_date.tz_localize(None)]
+            else:
+                end_date = production_end
+            
+            # Get price data with automatic fetching of missing data
+            prices_df = price_fetcher.get_price_data(area, start_date, end_date)
+            
+            # Merge and analyze
+            merged_df = analyzer.merge_data(prices_df, production_df, currency_rate)
+            analysis = analyzer.analyze_data(merged_df)
+            
+            # Convert analysis results to JSON-serializable format using our custom encoder
+            analysis_json = json.loads(json.dumps(analysis, cls=NumpyJSONEncoder))
+            
+            # Prepare metadata with native types
+            metadata = {
+                'area_code': area,
+                'currency': currency,
+                'currency_rate': float(currency_rate),
+                'file_name': secure_filename(file.filename),
+                'start_date': start_date.isoformat(),
+                'end_date': end_date.isoformat(),
+                'data_points': int(len(merged_df))
+            }
+            
+            # Store minimal data in session (avoid large datasets in session)
+            session['analysis_results'] = {
+                'analysis': analysis_json,
+                'metadata': metadata
+            }
+            
+            flash('Analysis completed successfully!', 'success')
+            return redirect('/results')
+            
+        finally:
+            # Clean up temporary file
+            try:
+                os.unlink(temp_filename)
+            except:
+                pass
+                
+    except Exception as e:
+        logger.error(f"Upload processing error: {e}")
+        flash(f'Analysis failed: {str(e)}', 'error')
+        return render_template('upload.html', page_title="Upload & Analyze")
 
 if __name__ == '__main__':
     import argparse
@@ -1592,10 +1707,12 @@ if __name__ == '__main__':
     print(f"Starting Sourceful Energy Web Application on {args.host}:{args.port}")
     print(f"Debug mode: {args.debug}")
     print("\nWeb Interface:")
-    print(f"  http://{args.host}:{args.port}/                - Main dashboard")
+    print(f"  http://{args.host}:{args.port}/                - Main dashboard with upload form")
     print(f"  http://{args.host}:{args.port}/status          - System status")
-    print(f"  http://{args.host}:{args.port}/upload          - Upload data (coming soon)")
+    print(f"  http://{args.host}:{args.port}/upload          - Upload data")
+    print(f"  http://{args.host}:{args.port}/results         - Analysis results")
     print("\nInternal API endpoints available for frontend integration.")
+    print(f"ENTSO-E API: {'Connected' if os.getenv('ENTSOE_API_KEY') else 'No API key - using existing data only'}")
     print(f"\nApplication Dashboard: http://{args.host}:{args.port}/")
     
     app.run(host=args.host, port=args.port, debug=args.debug)

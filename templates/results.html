@@ -1,0 +1,345 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analysis Results - Sourceful Energy</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+</head>
+<body>
+    <!-- Header Navigation -->
+    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
+        <div class="container">
+            <a class="navbar-brand d-flex align-items-center" href="/">
+                <img src="https://docs.sourceful.energy/assets/files/Sourceful-Logo-Wide-Teal-eb6845162483f6d470562338a87f7dc0.png" 
+                     alt="Sourceful Energy" class="logo-header me-3">
+                <div>
+                    <span class="fw-bold text-primary fs-4">Sourceful Energy</span>
+                    <div class="small text-muted">Analysis Results</div>
+                </div>
+            </a>
+            <span class="badge bg-success ms-auto">Analysis Complete</span>
+        </div>
+    </nav>
+
+    <!-- Flash Messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            <div class="container mt-3">
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'info' }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    {% endwith %}
+
+    <!-- Results Header -->
+    <section class="py-4 bg-light">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-8">
+                    <h1 class="display-6 fw-bold text-primary mb-2">
+                        <i class="bi bi-graph-up me-3"></i>
+                        Analysis Results
+                    </h1>
+                    <p class="text-muted mb-0">
+                        Analysis for {{ results.metadata.file_name }} in {{ results.metadata.area_code }} 
+                        ({{ results.metadata.currency }})
+                    </p>
+                </div>
+                <div class="col-md-4 text-end">
+                    <a href="/" class="btn btn-primary me-2">
+                        <i class="bi bi-arrow-left me-2"></i>New Analysis
+                    </a>
+                    <button class="btn btn-outline-primary" onclick="window.print()">
+                        <i class="bi bi-printer me-2"></i>Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Metrics Cards -->
+    <section class="py-5">
+        <div class="container">
+            <!-- Period Information -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <i class="bi bi-calendar-range text-primary fs-3 mb-2"></i>
+                                        <h6 class="fw-bold">Analysis Period</h6>
+                                        <p class="mb-0">{{ results.analysis.period_days }} days</p>
+                                        <small class="text-muted">{{ results.analysis.total_hours }} hours</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <i class="bi bi-geo-alt text-info fs-3 mb-2"></i>
+                                        <h6 class="fw-bold">Electricity Area</h6>
+                                        <p class="mb-0">{{ results.metadata.area_code }}</p>
+                                        <small class="text-muted">Price data region</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <i class="bi bi-currency-exchange text-success fs-3 mb-2"></i>
+                                        <h6 class="fw-bold">Currency</h6>
+                                        <p class="mb-0">{{ results.metadata.currency }}</p>
+                                        <small class="text-muted">Rate: {{ "%.3f"|format(results.metadata.currency_rate) }}</small>
+                                    </div>
+                                </div>
+                                <div class="col-md-3">
+                                    <div class="text-center">
+                                        <i class="bi bi-database text-warning fs-3 mb-2"></i>
+                                        <h6 class="fw-bold">Data Points</h6>
+                                        <p class="mb-0">{{ results.metadata.data_points }}</p>
+                                        <small class="text-muted">Hourly records</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Production Metrics -->
+            <div class="row g-4 mb-5">
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <div class="metric-icon bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
+                                <i class="bi bi-lightning-charge fs-3"></i>
+                            </div>
+                            <h5 class="card-title fw-bold text-success">Total Production</h5>
+                            <h3 class="text-success mb-1">{{ "%.1f"|format(results.analysis.production_total) }}</h3>
+                            <p class="text-muted mb-0">kWh</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <div class="metric-icon bg-info text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
+                                <i class="bi bi-speedometer2 fs-3"></i>
+                            </div>
+                            <h5 class="card-title fw-bold text-info">Average Hourly</h5>
+                            <h3 class="text-info mb-1">{{ "%.2f"|format(results.analysis.production_mean) }}</h3>
+                            <p class="text-muted mb-0">kWh/hour</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <div class="metric-icon bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
+                                <i class="bi bi-graph-up-arrow fs-3"></i>
+                            </div>
+                            <h5 class="card-title fw-bold text-primary">Peak Production</h5>
+                            <h3 class="text-primary mb-1">{{ "%.2f"|format(results.analysis.production_max) }}</h3>
+                            <p class="text-muted mb-0">kWh/hour</p>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-md-3">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body text-center">
+                            <div class="metric-icon bg-secondary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
+                                <i class="bi bi-clock fs-3"></i>
+                            </div>
+                            <h5 class="card-title fw-bold text-secondary">Active Hours</h5>
+                            <h3 class="text-secondary mb-1">{{ results.analysis.hours_with_production }}</h3>
+                            <p class="text-muted mb-0">hours</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Financial Metrics -->
+            <div class="row g-4 mb-5">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold mb-4">
+                                <i class="bi bi-cash-coin text-success me-2"></i>
+                                Export Value
+                            </h5>
+                            <div class="row">
+                                <div class="col-6 text-center">
+                                    <h4 class="text-success mb-1">
+                                        {{ "%.2f"|format(results.analysis.total_export_value_sek * (results.metadata.currency_rate / 11.5)) }}
+                                    </h4>
+                                    <p class="text-muted mb-0">Total {{ results.metadata.currency }}</p>
+                                </div>
+                                <div class="col-6 text-center">
+                                    <h4 class="text-info mb-1">
+                                        {{ "%.2f"|format(results.analysis.positive_export_value_sek * (results.metadata.currency_rate / 11.5)) }}
+                                    </h4>
+                                    <p class="text-muted mb-0">Positive Prices</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm h-100">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold mb-4">
+                                <i class="bi bi-exclamation-triangle text-warning me-2"></i>
+                                Negative Price Impact
+                            </h5>
+                            <div class="row">
+                                <div class="col-6 text-center">
+                                    <h4 class="text-danger mb-1">
+                                        {{ results.analysis.negative_price_hours }}
+                                    </h4>
+                                    <p class="text-muted mb-0">Hours</p>
+                                </div>
+                                <div class="col-6 text-center">
+                                    <h4 class="text-danger mb-1">
+                                        {{ "%.2f"|format(results.analysis.negative_export_cost_abs_sek * (results.metadata.currency_rate / 11.5)) }}
+                                    </h4>
+                                    <p class="text-muted mb-0">Cost {{ results.metadata.currency }}</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Price Statistics -->
+            <div class="row g-4 mb-5">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold mb-4">
+                                <i class="bi bi-graph-down text-primary me-2"></i>
+                                Price Statistics
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-3 text-center">
+                                    <h6 class="fw-bold text-success">Minimum Price</h6>
+                                    <h4 class="text-success">
+                                        {{ "%.4f"|format((results.analysis.price_min_eur_mwh * results.metadata.currency_rate) / 1000) }}
+                                    </h4>
+                                    <small class="text-muted">{{ results.metadata.currency }}/kWh</small>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h6 class="fw-bold text-info">Average Price</h6>
+                                    <h4 class="text-info">
+                                        {{ "%.4f"|format((results.analysis.price_mean_eur_mwh * results.metadata.currency_rate) / 1000) }}
+                                    </h4>
+                                    <small class="text-muted">{{ results.metadata.currency }}/kWh</small>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h6 class="fw-bold text-warning">Median Price</h6>
+                                    <h4 class="text-warning">
+                                        {{ "%.4f"|format((results.analysis.price_median_eur_mwh * results.metadata.currency_rate) / 1000) }}
+                                    </h4>
+                                    <small class="text-muted">{{ results.metadata.currency }}/kWh</small>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h6 class="fw-bold text-danger">Maximum Price</h6>
+                                    <h4 class="text-danger">
+                                        {{ "%.4f"|format((results.analysis.price_max_eur_mwh * results.metadata.currency_rate) / 1000) }}
+                                    </h4>
+                                    <small class="text-muted">{{ results.metadata.currency }}/kWh</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Graph Placeholders -->
+            <div class="row g-4 mb-5">
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold mb-4">
+                                <i class="bi bi-bar-chart text-primary me-2"></i>
+                                Production Timeline
+                            </h5>
+                            <div class="placeholder-graph text-center p-5 bg-light rounded">
+                                <i class="bi bi-graph-up text-muted display-1 mb-3"></i>
+                                <p class="text-muted mb-0">Interactive chart coming soon</p>
+                                <small class="text-muted">Production vs Time visualization</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold mb-4">
+                                <i class="bi bi-pie-chart text-info me-2"></i>
+                                Price Distribution
+                            </h5>
+                            <div class="placeholder-graph text-center p-5 bg-light rounded">
+                                <i class="bi bi-pie-chart text-muted display-1 mb-3"></i>
+                                <p class="text-muted mb-0">Price histogram coming soon</p>
+                                <small class="text-muted">Negative vs positive price breakdown</small>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Actions -->
+            <div class="row">
+                <div class="col-12 text-center">
+                    <a href="/" class="btn btn-primary btn-lg me-3">
+                        <i class="bi bi-arrow-left me-2"></i>
+                        Analyze Another File
+                    </a>
+                    <button class="btn btn-outline-primary btn-lg me-3" onclick="window.print()">
+                        <i class="bi bi-printer me-2"></i>
+                        Print Results
+                    </button>
+                    <a href="/status" class="btn btn-outline-secondary btn-lg">
+                        <i class="bi bi-info-circle me-2"></i>
+                        System Status
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer bg-dark text-light py-4">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col-md-6">
+                    <div class="d-flex align-items-center">
+                        <img src="https://docs.sourceful.energy/assets/files/Sourceful-Logo-Wide-Light-3469afb6868bc31c6223997a8af6f64c.png" 
+                             alt="Sourceful Energy" class="logo-footer me-3">
+                        <small class="text-light-50">© 2025 Sourceful Energy</small>
+                    </div>
+                </div>
+                <div class="col-md-6 text-end">
+                    <small class="text-light-50">Analysis completed successfully</small>
+                </div>
+            </div>
+        </div>
+    </footer>
+
+    <!-- Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Custom JS -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>

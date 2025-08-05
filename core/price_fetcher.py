@@ -133,14 +133,22 @@ class PriceFetcher:
         # Get API key from parameter or environment
         if api_key is None:
             api_key = os.getenv('ENTSOE_API_KEY')
-            if not api_key:
-                raise ValueError(
-                    "ENTSO-E API key is required. Set ENTSOE_API_KEY environment variable or pass api_key parameter. "
-                    "Get your API key from: https://transparency.entsoe.eu/usrm/user/createPublicApiKey"
-                )
         
         self.api_key = api_key
-        self.client = EntsoePandasClient(api_key=api_key)
+        self.has_api_access = api_key is not None and api_key.strip() != ''
+        
+        if self.has_api_access:
+            try:
+                self.client = EntsoePandasClient(api_key=api_key)
+                logger.info("ENTSO-E API client initialized successfully")
+            except Exception as e:
+                logger.warning(f"Failed to initialize ENTSO-E client: {e}")
+                self.has_api_access = False
+                self.client = None
+        else:
+            self.client = None
+            logger.info("No ENTSO-E API key provided - will use existing database data only")
+        
         self.db = PriceDatabase(db_path)
     
     def get_price_data(self, area_code: str, start_date: pd.Timestamp, end_date: pd.Timestamp) -> pd.DataFrame:
@@ -161,43 +169,53 @@ class PriceFetcher:
         min_date, max_date, count = self.db.get_data_range(area_code)
         if min_date is not None:
             logger.info(f"Database contains {count} records for {area_code} from {min_date.date()} to {max_date.date()}")
+        else:
+            logger.info(f"No existing data found for {area_code} in database")
         
         # Find missing periods that need to be downloaded
         missing_periods = self.db.get_missing_periods(area_code, start_date, end_date)
         
-        # Download missing data
-        for period_start, period_end in missing_periods:
-            if period_start <= period_end:  # Valid period
-                logger.info(f"Downloading missing data from {period_start.date()} to {period_end.date()}")
-                try:
-                    # Convert to timezone-aware for API call
-                    api_start = pd.Timestamp(period_start, tz='Europe/Stockholm')
-                    api_end = pd.Timestamp(period_end, tz='Europe/Stockholm')
-                    
-                    new_data = self.client.query_day_ahead_prices(area_code, start=api_start, end=api_end)
-                    
-                    # Convert to timezone-naive for storage
-                    if hasattr(new_data.index, 'tz') and new_data.index.tz is not None:
-                        new_data.index = new_data.index.tz_convert('Europe/Stockholm').tz_localize(None)
-                    
-                    # Convert Series to proper format if needed
-                    if isinstance(new_data, pd.Series):
-                        price_series = new_data
-                    else:
-                        price_series = new_data.iloc[:, 0]
-                    
-                    # Store in database
-                    self.db.store_data(area_code, price_series)
-                    
-                except Exception as e:
-                    logger.error(f"Failed to download price data for period {period_start.date()} to {period_end.date()}: {e}")
-                    raise
+        # Download missing data if we have API access
+        if missing_periods and self.has_api_access:
+            for period_start, period_end in missing_periods:
+                if period_start <= period_end:  # Valid period
+                    logger.info(f"Downloading missing data from {period_start.date()} to {period_end.date()}")
+                    try:
+                        # Convert to timezone-aware for API call
+                        api_start = pd.Timestamp(period_start, tz='Europe/Stockholm')
+                        api_end = pd.Timestamp(period_end, tz='Europe/Stockholm')
+                        
+                        new_data = self.client.query_day_ahead_prices(area_code, start=api_start, end=api_end)
+                        
+                        # Convert to timezone-naive for storage
+                        if hasattr(new_data.index, 'tz') and new_data.index.tz is not None:
+                            new_data.index = new_data.index.tz_convert('Europe/Stockholm').tz_localize(None)
+                        
+                        # Convert Series to proper format if needed
+                        if isinstance(new_data, pd.Series):
+                            price_series = new_data
+                        else:
+                            price_series = new_data.iloc[:, 0]
+                        
+                        # Store in database
+                        self.db.store_data(area_code, price_series)
+                        
+                    except Exception as e:
+                        logger.error(f"Failed to download price data for period {period_start.date()} to {period_end.date()}: {e}")
+                        # Don't raise - continue with whatever data we have
+                        
+        elif missing_periods and not self.has_api_access:
+            logger.warning(f"Missing data for {len(missing_periods)} periods, but no API key available to fetch it")
+            logger.info("To enable automatic data fetching, set ENTSOE_API_KEY environment variable")
         
         # Now query the requested data from database
         prices_df = self.db.query_data(area_code, start_date, end_date)
         
         if len(prices_df) == 0:
-            raise ValueError(f"No price data available for {area_code} in the requested period")
+            error_msg = f"No price data available for {area_code} in the requested period ({start_date.date()} to {end_date.date()})"
+            if not self.has_api_access:
+                error_msg += ". Set ENTSOE_API_KEY environment variable to enable automatic data fetching."
+            raise ValueError(error_msg)
         
         logger.info(f"Retrieved {len(prices_df)} price records from database")
         return prices_df
