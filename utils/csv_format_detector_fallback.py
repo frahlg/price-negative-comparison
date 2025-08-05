@@ -209,7 +209,7 @@ def test_detector():
     """Test the format detector with the production file."""
     detector = CSVFormatDetectorFallback()
     
-    file_path = "Produktion - Solvägen 33a.csv"
+    file_path = "data/samples/Produktion - Solvägen 33a.csv"
     if not os.path.exists(file_path):
         print(f"File {file_path} not found")
         return

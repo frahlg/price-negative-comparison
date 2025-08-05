@@ -1,0 +1,1458 @@
+#!/usr/bin/env python3
+"""
+Price Production Analysis Flask API
+
+A REST API service for analyzing electricity prices and solar production data.
+
+Usage:
+    python flask_api.py
+
+Endpoints:
+    POST /analyze - Analyze production data against electricity prices
+    GET /health - Health check
+    GET /database/info - Database information
+    GET /database/areas - List available areas
+"""
+
+from flask import Flask, request, jsonify, make_response, render_template, Blueprint
+import pandas as pd
+import tempfile
+import os
+import json
+import numpy as np
+import sqlite3
+from datetime import datetime, date
+from pathlib import Path
+from utils.csv_format_detector_fallback import CSVFormatDetectorFallback
+from utils.csv_format_module import CSVFormatDetector
+from dotenv import load_dotenv
+import logging
+from werkzeug.utils import secure_filename
+from core.price_fetcher import PriceFetcher
+from core.production_loader import ProductionLoader
+from core.price_analyzer import PriceAnalyzer
+from core.db_manager import PriceDatabaseManager
+
+# Load environment variables
+load_dotenv()
+
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
+# Security Configuration - Hardcode database path for production security
+SECURE_DB_PATH = 'data/price_data.db'  # No user input allowed for database path
+
+class NumpyJSONEncoder(json.JSONEncoder):
+    """Custom JSON encoder that handles NumPy and Pandas data types."""
+    def default(self, obj):
+        if isinstance(obj, np.integer):
+            return int(obj)
+        elif isinstance(obj, np.floating):
+            return float(obj)
+        elif isinstance(obj, np.ndarray):
+            return obj.tolist()
+        elif isinstance(obj, pd.Timestamp):
+            return obj.isoformat()
+        elif isinstance(obj, (datetime, date)):
+            return obj.isoformat()
+        return super().default(obj)
+
+app = Flask(__name__, template_folder='templates', static_folder='static')
+
+# Create API Blueprint for all existing endpoints
+api_blueprint = Blueprint('api', __name__)
+
+# Load environment variables
+load_dotenv()
+
+def safe_jsonify(data, status_code=200):
+    """Custom jsonify function that handles NumPy/Pandas data types."""
+    try:
+        json_str = json.dumps(data, cls=NumpyJSONEncoder, ensure_ascii=False)
+        response = make_response(json_str, status_code)
+        response.headers['Content-Type'] = 'application/json'
+        return response
+    except TypeError as e:
+        logger.error(f"JSON serialization error: {e}")
+        error_response = make_response(json.dumps({'error': 'Data serialization error'}), 500)
+        error_response.headers['Content-Type'] = 'application/json'
+        return error_response
+app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+# Currency conversion rates (base: EUR)
+CURRENCY_RATES = {
+    'EUR': 1.0,
+    'SEK': 11.5,
+    'USD': 1.1,
+    'NOK': 12.0,
+    'DKK': 7.4,
+    'GBP': 0.85
+}
+
+ALLOWED_EXTENSIONS = {'csv', 'txt'}
+
+def allowed_file(filename):
+    """Check if file extension is allowed."""
+    return '.' in filename and filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
+
+def get_currency_rate(currency):
+    """Get exchange rate for currency."""
+    currency = currency.upper()
+    if currency not in CURRENCY_RATES:
+        raise ValueError(f"Unsupported currency: {currency}. Supported: {', '.join(CURRENCY_RATES.keys())}")
+    return CURRENCY_RATES[currency]
+
+def format_price_with_currency(price_eur_per_mwh, currency, rate):
+    """Format price in the requested currency and appropriate units."""
+    if currency == 'EUR':
+        return f"{price_eur_per_mwh:.2f} EUR/MWh"
+    else:
+        # Convert to local currency per kWh for user-friendly display
+        price_local_kwh = (price_eur_per_mwh * rate) / 1000
+        return f"{price_local_kwh:.4f} {currency}/kWh"
+
+@api_blueprint.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint."""
+    return jsonify({
+        'status': 'healthy',
+        'service': 'Price Production Analysis API',
+        'version': '1.0.0'
+    })
+
+@api_blueprint.route('/currencies', methods=['GET'])
+def get_supported_currencies():
+    """Get list of supported currencies."""
+    return jsonify({
+        'supported_currencies': list(CURRENCY_RATES.keys()),
+        'default': 'SEK',
+        'rates': CURRENCY_RATES
+    })
+
+@api_blueprint.route('/database/info', methods=['GET'])
+def database_info():
+    """Get database information."""
+    try:
+        manager = PriceDatabaseManager(SECURE_DB_PATH)
+        
+        if not Path(SECURE_DB_PATH).exists():
+            return jsonify({'error': 'Database does not exist'}), 404
+        
+        # Get basic database info
+        import sqlite3
+        with sqlite3.connect(SECURE_DB_PATH) as conn:
+            total_records = conn.execute('SELECT COUNT(*) FROM price_data').fetchone()[0]
+            areas = conn.execute('SELECT DISTINCT area_code FROM price_data ORDER BY area_code').fetchall()
+            date_range = conn.execute('SELECT MIN(datetime), MAX(datetime) FROM price_data').fetchone()
+            
+            # Per-area statistics
+            area_stats = []
+            for (area,) in areas:
+                area_info = conn.execute('''
+                    SELECT COUNT(*), MIN(datetime), MAX(datetime), 
+                           MIN(price_eur_per_mwh), MAX(price_eur_per_mwh), AVG(price_eur_per_mwh)
+                    FROM price_data 
+                    WHERE area_code = ?
+                ''', (area,)).fetchone()
+                
+                area_stats.append({
+                    'area_code': area,
+                    'records': area_info[0],
+                    'date_range': {
+                        'start': area_info[1],
+                        'end': area_info[2]
+                    },
+                    'price_range_eur_mwh': {
+                        'min': area_info[3],
+                        'max': area_info[4],
+                        'avg': area_info[5]
+                    }
+                })
+        
+        return jsonify({
+            'total_records': total_records,
+            'areas_count': len(areas),
+            'date_range': {
+                'start': date_range[0],
+                'end': date_range[1]
+            } if date_range[0] else None,
+            'areas': area_stats
+        })
+        
+    except Exception as e:
+        logger.error(f"Database info error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@api_blueprint.route('/database/areas', methods=['GET'])
+def list_areas():
+    """List available areas in the database."""
+    try:
+        if not Path(SECURE_DB_PATH).exists():
+            return jsonify({'areas': []})
+        
+        import sqlite3
+        with sqlite3.connect(SECURE_DB_PATH) as conn:
+            areas = conn.execute('SELECT DISTINCT area_code FROM price_data ORDER BY area_code').fetchall()
+        
+        return jsonify({
+            'areas': [area[0] for area in areas]
+        })
+        
+    except Exception as e:
+        logger.error(f"List areas error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@api_blueprint.route('/detect-csv-format', methods=['POST'])
+def detect_csv_format():
+    """Detect CSV format for uploaded file."""
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file provided'}), 400
+    
+    file = request.files['file']
+    
+    if file.filename == '':
+        return jsonify({'error': 'No file selected'}), 400
+    
+    if not file.filename.lower().endswith('.csv'):
+        return jsonify({'error': 'Invalid file type. Only CSV files allowed'}), 400
+    
+    # Save uploaded file temporarily
+    with tempfile.NamedTemporaryFile(mode='w+b', suffix='.csv', delete=False) as temp_file:
+        file.save(temp_file.name)
+        temp_filename = temp_file.name
+    
+    try:
+        # Try LLM-powered detection first
+        use_llm = request.form.get('use_llm', 'true').lower() == 'true'
+        
+        if use_llm:
+            try:
+                logger.info("Attempting LLM-powered CSV format detection")
+                llm_detector = CSVFormatDetector()
+                params = llm_detector.detect_format(temp_filename)
+                
+                # Test load a few rows to validate
+                df_sample = pd.read_csv(temp_filename, nrows=5, **params)
+                
+                response = {
+                    'status': 'success',
+                    'detection_method': 'llm',
+                    'detected_format': params,
+                    'pandas_params': params,
+                    'sample_data': {
+                        'columns': list(df_sample.columns),
+                        'rows': df_sample.head().to_dict('records'),
+                        'shape': {'rows': len(df_sample), 'columns': len(df_sample.columns)}
+                    },
+                    'recommendations': {
+                        'pandas_params': params,
+                        'notes': 'Format detected using AI analysis. Use these parameters with pd.read_csv() to load the file'
+                    }
+                }
+                
+                return safe_jsonify(response)
+                
+            except Exception as llm_error:
+                logger.warning(f"LLM detection failed, falling back to traditional method: {llm_error}")
+        
+        # Fallback to traditional detection
+        logger.info("Using traditional CSV format detection")
+        detector = CSVFormatDetectorFallback()
+        params = detector.detect_format(temp_filename)
+        
+        # Test load a few rows to validate
+        df_sample = pd.read_csv(temp_filename, nrows=5, **params)
+        
+        response = {
+            'status': 'success',
+            'detection_method': 'traditional',
+            'detected_format': params,
+            'pandas_params': params,
+            'sample_data': {
+                'columns': list(df_sample.columns),
+                'rows': df_sample.head().to_dict('records'),
+                'shape': {'rows': len(df_sample), 'columns': len(df_sample.columns)}
+            },
+            'recommendations': {
+                'pandas_params': params,
+                'notes': 'Format detected using traditional parsing. Use these parameters with pd.read_csv() to load the file'
+            }
+        }
+        
+        return safe_jsonify(response)
+        
+    except Exception as e:
+        logger.error(f"CSV format detection failed: {e}")
+        return jsonify({'error': f'Format detection failed: {str(e)}'}), 500
+    
+    finally:
+        # Clean up temporary file
+        try:
+            os.unlink(temp_filename)
+        except:
+            pass
+
+@api_blueprint.route('/analyze/daily-summary', methods=['POST'])
+def analyze_daily_summary():
+    """
+    Get daily summary analysis from production data.
+    
+    Expected form data:
+    - file: CSV file with production data
+    - area: Electricity area code (e.g., SE_4)
+    - currency: Currency for display (optional, default: SEK)
+    - start_date: Start date YYYY-MM-DD (optional)
+    - end_date: End date YYYY-MM-DD (optional)
+    """
+    try:
+        # Validate request (reuse logic from main analyze endpoint)
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file type. Only CSV files allowed'}), 400
+        
+        # Get parameters
+        area = request.form.get('area')
+        if not area:
+            return jsonify({'error': 'Area code is required'}), 400
+        
+        currency = request.form.get('currency', 'SEK').upper()
+        start_date = request.form.get('start_date')
+        end_date = request.form.get('end_date')
+        # SECURITY: Database path hardcoded for security
+        # db_path parameter removed from public API
+        
+        # Validate currency
+        try:
+            currency_rate = get_currency_rate(currency)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(mode='w+b', suffix='.csv', delete=False) as temp_file:
+            file.save(temp_file.name)
+            temp_filename = temp_file.name
+        
+        try:
+            # Create components and run analysis
+            price_fetcher = PriceFetcher(db_path=SECURE_DB_PATH)
+            production_loader = ProductionLoader()
+            analyzer = PriceAnalyzer()
+            
+            # Load production data
+            production_df = production_loader.load_production_data(temp_filename)
+            
+            # Determine date range
+            production_start = pd.Timestamp(production_df.index.min(), tz='Europe/Stockholm')
+            production_end = pd.Timestamp(production_df.index.max(), tz='Europe/Stockholm')
+            
+            if start_date:
+                start_date = pd.Timestamp(start_date, tz='Europe/Stockholm')
+                if start_date > production_start:
+                    production_df = production_df[production_df.index >= start_date.tz_localize(None)]
+            else:
+                start_date = production_start
+                
+            if end_date:
+                end_date = pd.Timestamp(end_date, tz='Europe/Stockholm')
+                if end_date < production_end:
+                    production_df = production_df[production_df.index <= end_date.tz_localize(None)]
+            else:
+                end_date = production_end
+            
+            # Get price data
+            prices_df = price_fetcher.get_price_data(area, start_date, end_date)
+            
+            # Merge and get daily summary
+            merged_df = analyzer.merge_data(prices_df, production_df, currency_rate)
+            daily_summary = analyzer.get_daily_summary(merged_df)
+            
+            # Convert to currency-appropriate format
+            response = {
+                'daily_summary': {
+                    'period': {
+                        'start': merged_df.index.min().isoformat(),
+                        'end': merged_df.index.max().isoformat(),
+                        'days': len(daily_summary)
+                    },
+                    'currency': currency,
+                    'days': []
+                }
+            }
+            
+            # Process each day
+            for date, row in daily_summary.iterrows():
+                day_data = {
+                    'date': date.isoformat(),
+                    'production': {
+                        'total_kwh': round(float(row['production_kwh_sum']), 2),
+                        'average_kwh': round(float(row['production_kwh_mean']), 3),
+                        'max_kwh': round(float(row['production_kwh_max']), 3)
+                    },
+                    'prices': {
+                        'average': {
+                            'value': round(float(row['price_sek_per_kwh_mean']) * (currency_rate / 11.5), 4) if currency != 'SEK' else round(float(row['price_sek_per_kwh_mean']), 4),
+                            'unit': f'{currency}/kWh'
+                        },
+                        'min': {
+                            'value': round(float(row['price_sek_per_kwh_min']) * (currency_rate / 11.5), 4) if currency != 'SEK' else round(float(row['price_sek_per_kwh_min']), 4),
+                            'unit': f'{currency}/kWh'
+                        },
+                        'max': {
+                            'value': round(float(row['price_sek_per_kwh_max']) * (currency_rate / 11.5), 4) if currency != 'SEK' else round(float(row['price_sek_per_kwh_max']), 4),
+                            'unit': f'{currency}/kWh'
+                        }
+                    },
+                    'export_value': {
+                        'value': round(float(row['export_value_sek_sum']) * (currency_rate / 11.5), 2) if currency != 'SEK' else round(float(row['export_value_sek_sum']), 2),
+                        'currency': currency
+                    }
+                }
+                response['daily_summary']['days'].append(day_data)
+            
+            return safe_jsonify(response)
+            
+        finally:
+            # Clean up temporary file
+            try:
+                os.unlink(temp_filename)
+            except:
+                pass
+                
+    except Exception as e:
+        logger.error(f"Daily summary analysis error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@api_blueprint.route('/analyze/negative-prices', methods=['POST'])
+def analyze_negative_prices_endpoint():
+    """
+    Dedicated negative price analysis endpoint.
+    
+    Expected form data:
+    - file: CSV file with production data
+    - area: Electricity area code (e.g., SE_4)
+    - currency: Currency for display (optional, default: SEK)
+    - start_date: Start date YYYY-MM-DD (optional)
+    - end_date: End date YYYY-MM-DD (optional)
+    """
+    try:
+        # Validate request (reuse logic from main analyze endpoint)
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file type. Only CSV files allowed'}), 400
+        
+        # Get parameters
+        area = request.form.get('area')
+        if not area:
+            return jsonify({'error': 'Area code is required'}), 400
+        
+        currency = request.form.get('currency', 'SEK').upper()
+        start_date = request.form.get('start_date')
+        end_date = request.form.get('end_date')
+        # SECURITY: Database path hardcoded for security
+        # db_path parameter removed from public API
+        
+        # Validate currency
+        try:
+            currency_rate = get_currency_rate(currency)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(mode='w+b', suffix='.csv', delete=False) as temp_file:
+            file.save(temp_file.name)
+            temp_filename = temp_file.name
+        
+        try:
+            # Create components and run analysis
+            price_fetcher = PriceFetcher(db_path=SECURE_DB_PATH)
+            production_loader = ProductionLoader()
+            analyzer = PriceAnalyzer()
+            
+            # Load production data
+            production_df = production_loader.load_production_data(temp_filename)
+            
+            # Determine date range
+            production_start = pd.Timestamp(production_df.index.min(), tz='Europe/Stockholm')
+            production_end = pd.Timestamp(production_df.index.max(), tz='Europe/Stockholm')
+            
+            if start_date:
+                start_date = pd.Timestamp(start_date, tz='Europe/Stockholm')
+                if start_date > production_start:
+                    production_df = production_df[production_df.index >= start_date.tz_localize(None)]
+            else:
+                start_date = production_start
+                
+            if end_date:
+                end_date = pd.Timestamp(end_date, tz='Europe/Stockholm')
+                if end_date < production_end:
+                    production_df = production_df[production_df.index <= end_date.tz_localize(None)]
+            else:
+                end_date = production_end
+            
+            # Get price data and merge
+            prices_df = price_fetcher.get_price_data(area, start_date, end_date)
+            merged_df = analyzer.merge_data(prices_df, production_df, currency_rate)
+            
+            # Filter for negative price periods
+            negative_prices_df = merged_df[merged_df['price_eur_per_mwh'] < 0].copy()
+            negative_with_production = negative_prices_df[negative_prices_df['production_kwh'] > 0].copy()
+            
+            if len(negative_with_production) == 0:
+                return jsonify({
+                    'negative_price_analysis': {
+                        'has_negative_prices': False,
+                        'message': 'No production during negative price periods in the dataset',
+                        'period': {
+                            'start': merged_df.index.min().isoformat(),
+                            'end': merged_df.index.max().isoformat()
+                        }
+                    }
+                })
+            
+            # Calculate monthly breakdown
+            negative_prices_df['month'] = negative_prices_df.index.to_period('M')
+            monthly_breakdown = negative_prices_df.groupby('month').agg({
+                'production_kwh': 'sum',
+                'export_value_sek': 'sum'
+            })
+            monthly_breakdown['cost_abs'] = abs(monthly_breakdown['export_value_sek'])
+            monthly_breakdown = monthly_breakdown[monthly_breakdown['production_kwh'] > 0]
+            
+            # Calculate daily breakdown
+            negative_prices_df['date'] = negative_prices_df.index.date
+            daily_breakdown = negative_prices_df.groupby('date').agg({
+                'production_kwh': 'sum',
+                'export_value_sek': 'sum'
+            })
+            daily_breakdown['cost_abs'] = abs(daily_breakdown['export_value_sek'])
+            daily_breakdown = daily_breakdown[daily_breakdown['production_kwh'] > 0]
+            
+            # Top 10 most expensive hours
+            top_expensive = negative_with_production.nsmallest(10, 'export_value_sek')
+            
+            # Total costs and comparison
+            total_cost = abs(negative_prices_df['export_value_sek'].sum())
+            total_export_value = merged_df['export_value_sek'].sum()
+            positive_export_value = merged_df[merged_df['price_eur_per_mwh'] > 0]['export_value_sek'].sum()
+            
+            # Convert currency if needed
+            currency_conversion_factor = currency_rate / 11.5 if currency != 'SEK' else 1.0
+            
+            response = {
+                'negative_price_analysis': {
+                    'has_negative_prices': True,
+                    'period': {
+                        'start': merged_df.index.min().isoformat(),
+                        'end': merged_df.index.max().isoformat(),
+                        'total_hours': len(merged_df),
+                        'negative_price_hours': len(negative_prices_df),
+                        'negative_price_hours_with_production': len(negative_with_production)
+                    },
+                    'currency': currency,
+                    'overview': {
+                        'total_production_kwh': round(float(negative_prices_df['production_kwh'].sum()), 2),
+                        'average_hourly_production_kwh': round(float(negative_with_production['production_kwh'].mean()), 3),
+                        'max_hourly_production_kwh': round(float(negative_with_production['production_kwh'].max()), 3),
+                        'total_cost': {
+                            'value': round(total_cost * currency_conversion_factor, 2),
+                            'currency': currency
+                        }
+                    },
+                    'price_statistics': {
+                        'lowest_price': {
+                            'value': round(float(negative_prices_df['price_sek_per_kwh'].min()) * currency_conversion_factor, 4),
+                            'unit': f'{currency}/kWh'
+                        },
+                        'average_negative_price': {
+                            'value': round(float(negative_prices_df['price_sek_per_kwh'].mean()) * currency_conversion_factor, 4),
+                            'unit': f'{currency}/kWh'
+                        }
+                    },
+                    'monthly_breakdown': [
+                        {
+                            'month': str(month),
+                            'production_kwh': round(float(row['production_kwh']), 1),
+                            'cost': {
+                                'value': round(float(row['cost_abs']) * currency_conversion_factor, 2),
+                                'currency': currency
+                            }
+                        }
+                        for month, row in monthly_breakdown.iterrows()
+                    ],
+                    'top_expensive_hours': [
+                        {
+                            'datetime': idx.isoformat(),
+                            'production_kwh': round(float(row['production_kwh']), 3),
+                            'price': {
+                                'value': round(float(row['price_sek_per_kwh']) * currency_conversion_factor, 4),
+                                'unit': f'{currency}/kWh'
+                            },
+                            'cost': {
+                                'value': round(abs(float(row['export_value_sek'])) * currency_conversion_factor, 3),
+                                'currency': currency
+                            }
+                        }
+                        for idx, row in top_expensive.iterrows()
+                    ],
+                    'impact_analysis': {
+                        'total_export_value': {
+                            'value': round(total_export_value * currency_conversion_factor, 2),
+                            'currency': currency
+                        },
+                        'positive_price_export_value': {
+                            'value': round(positive_export_value * currency_conversion_factor, 2),
+                            'currency': currency
+                        },
+                        'negative_price_cost': {
+                            'value': round(total_cost * currency_conversion_factor, 2),
+                            'currency': currency
+                        },
+                        'income_reduction_percentage': round((total_cost / positive_export_value) * 100, 2) if positive_export_value > 0 else 0
+                    },
+                    'daily_summary': {
+                        'days_with_negative_costs': len(daily_breakdown),
+                        'average_daily_cost': {
+                            'value': round(daily_breakdown['cost_abs'].mean() * currency_conversion_factor, 2),
+                            'currency': currency
+                        },
+                        'most_expensive_day': {
+                            'date': str(daily_breakdown['cost_abs'].idxmax()),
+                            'cost': {
+                                'value': round(daily_breakdown['cost_abs'].max() * currency_conversion_factor, 2),
+                                'currency': currency
+                            }
+                        }
+                    }
+                }
+            }
+            
+            return safe_jsonify(response)
+            
+        finally:
+            # Clean up temporary file
+            try:
+                os.unlink(temp_filename)
+            except:
+                pass
+                
+    except Exception as e:
+        logger.error(f"Negative price analysis error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@api_blueprint.route('/docs', methods=['GET'])
+def api_documentation():
+    """Get API documentation in JSON format."""
+    docs = {
+        'api_info': {
+            'name': 'Price Production Analysis API',
+            'version': '1.0.0',
+            'description': 'REST API for analyzing electricity prices and solar production data',
+            'base_url': request.host_url.rstrip('/')
+        },
+        'endpoints': {
+            'GET /api/health': {
+                'description': 'Health check endpoint',
+                'parameters': None,
+                'response': 'JSON with service status'
+            },
+            'GET /api/currencies': {
+                'description': 'List supported currencies and exchange rates',
+                'parameters': None,
+                'response': 'JSON with currency list and rates'
+            },
+            'GET /api/database/info': {
+                'description': 'Get database information and statistics',
+                'parameters': None,
+                'response': 'JSON with database statistics'
+            },
+            'GET /api/database/areas': {
+                'description': 'List available electricity price areas',
+                'parameters': None,
+                'response': 'JSON with area list'
+            },
+            'POST /api/detect-csv-format': {
+                'description': 'Detect CSV file format using AI or traditional methods',
+                'parameters': {
+                    'file': 'Required CSV file upload',
+                    'use_llm': 'Optional boolean to use AI detection (default: true)'
+                },
+                'response': 'JSON with detected format and sample data'
+            },
+            'POST /api/analyze': {
+                'description': 'Analyze production data against electricity prices',
+                'parameters': {
+                    'file': 'Required CSV file with production data',
+                    'area': 'Required electricity area code (e.g., SE_4)',
+                    'currency': 'Optional target currency (default: SEK)',
+                    'start_date': 'Optional start date YYYY-MM-DD',
+                    'end_date': 'Optional end date YYYY-MM-DD'
+                },
+                'response': 'JSON with comprehensive analysis results'
+            },
+            'POST /api/analyze/daily-summary': {
+                'description': 'Get daily summary analysis from production data',
+                'parameters': {
+                    'file': 'Required CSV file with production data',
+                    'area': 'Required electricity area code',
+                    'currency': 'Optional target currency (default: SEK)',
+                    'start_date': 'Optional start date YYYY-MM-DD',
+                    'end_date': 'Optional end date YYYY-MM-DD'
+                },
+                'response': 'JSON with daily breakdown statistics'
+            },
+            'POST /api/analyze/negative-prices': {
+                'description': 'Dedicated negative price analysis with detailed breakdown',
+                'parameters': {
+                    'file': 'Required CSV file with production data',
+                    'area': 'Required electricity area code',
+                    'currency': 'Optional target currency (default: SEK)',
+                    'start_date': 'Optional start date YYYY-MM-DD',
+                    'end_date': 'Optional end date YYYY-MM-DD'
+                },
+                'response': 'JSON with negative price analysis and cost breakdown'
+            },
+            'GET /api/docs': {
+                'description': 'Get this API documentation',
+                'parameters': None,
+                'response': 'JSON with API documentation'
+            },
+            'GET /api/graph/price-timeline': {
+                'description': 'Get price data in timeline format for graphing',
+                'parameters': {
+                    'area': 'Required electricity area code',
+                    'start_date': 'Optional start date YYYY-MM-DD',
+                    'end_date': 'Optional end date YYYY-MM-DD',
+                    'currency': 'Optional target currency (default: EUR)',
+                    'resolution': 'Optional resolution: hourly, daily, weekly (default: hourly)'
+                },
+                'response': 'JSON with timeline data for charts'
+            },
+            'GET /api/graph/price-distribution': {
+                'description': 'Get price distribution data for histograms',
+                'parameters': {
+                    'area': 'Required electricity area code',
+                    'start_date': 'Optional start date YYYY-MM-DD',
+                    'end_date': 'Optional end date YYYY-MM-DD',
+                    'currency': 'Optional target currency (default: EUR)',
+                    'bins': 'Optional number of histogram bins (default: 50)'
+                },
+                'response': 'JSON with distribution data for histograms'
+            },
+            'GET /api/graph/negative-price-periods': {
+                'description': 'Get negative price periods data for visualization',
+                'parameters': {
+                    'area': 'Required electricity area code',
+                    'start_date': 'Optional start date YYYY-MM-DD',
+                    'end_date': 'Optional end date YYYY-MM-DD',
+                    'currency': 'Optional target currency (default: EUR)'
+                },
+                'response': 'JSON with negative price periods and detailed breakdown'
+            }
+        },
+        'supported_currencies': list(CURRENCY_RATES.keys()),
+        'supported_areas': [
+            'SE_1', 'SE_2', 'SE_3', 'SE_4',  # Sweden
+            'NO_1', 'NO_2', 'NO_3', 'NO_4', 'NO_5',  # Norway
+            'DK_1', 'DK_2',  # Denmark
+            'FI'  # Finland
+        ],
+        'file_formats': {
+            'production_csv': {
+                'description': 'CSV file with solar production data',
+                'required_columns': ['datetime', 'production'],
+                'supported_separators': [',', ';'],
+                'supported_encodings': ['utf-8', 'iso-8859-1', 'cp1252'],
+                'example_headers': [
+                    'Datum;Produktion kWh',
+                    'Date,Production kWh',
+                    'DateTime,kWh'
+                ]
+            }
+        },
+        'examples': {
+            'analyze_request': {
+                'method': 'POST',
+                'url': '/api/analyze',
+                'form_data': {
+                    'file': '@production.csv',
+                    'area': 'SE_4',
+                    'currency': 'SEK',
+                    'start_date': '2025-06-01',
+                    'end_date': '2025-06-30'
+                }
+            }
+        }
+    }
+    
+    return jsonify(docs)
+
+@api_blueprint.route('/analyze/export', methods=['POST'])
+def analyze_and_export():
+    """
+    Analyze production data and return merged CSV data.
+    
+    Expected form data (same as /analyze):
+    - file: CSV file with production data
+    - area: Electricity area code (e.g., SE_4)
+    - currency: Currency for display (optional, default: SEK)
+    - start_date: Start date YYYY-MM-DD (optional)
+    - end_date: End date YYYY-MM-DD (optional)
+    """
+    try:
+        # Validate request (reuse logic from main analyze endpoint)
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file type. Only CSV files allowed'}), 400
+        
+        # Get parameters
+        area = request.form.get('area')
+        if not area:
+            return jsonify({'error': 'Area code is required'}), 400
+        
+        currency = request.form.get('currency', 'SEK').upper()
+        start_date = request.form.get('start_date')
+        end_date = request.form.get('end_date')
+        # SECURITY: Database path hardcoded for security
+        # db_path parameter removed from public API
+        
+        # Validate currency
+        try:
+            currency_rate = get_currency_rate(currency)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(mode='w+b', suffix='.csv', delete=False) as temp_file:
+            file.save(temp_file.name)
+            temp_filename = temp_file.name
+        
+        try:
+            # Create components and run analysis
+            price_fetcher = PriceFetcher(db_path=SECURE_DB_PATH)
+            production_loader = ProductionLoader()
+            analyzer = PriceAnalyzer()
+            
+            # Load production data
+            production_df = production_loader.load_production_data(temp_filename)
+            
+            # Determine date range
+            production_start = pd.Timestamp(production_df.index.min(), tz='Europe/Stockholm')
+            production_end = pd.Timestamp(production_df.index.max(), tz='Europe/Stockholm')
+            
+            if start_date:
+                start_date = pd.Timestamp(start_date, tz='Europe/Stockholm')
+                if start_date > production_start:
+                    production_df = production_df[production_df.index >= start_date.tz_localize(None)]
+            else:
+                start_date = production_start
+                
+            if end_date:
+                end_date = pd.Timestamp(end_date, tz='Europe/Stockholm')
+                if end_date < production_end:
+                    production_df = production_df[production_df.index <= end_date.tz_localize(None)]
+            else:
+                end_date = production_end
+            
+            # Get price data
+            prices_df = price_fetcher.get_price_data(area, start_date, end_date)
+            
+            # Merge data
+            merged_df = analyzer.merge_data(prices_df, production_df, currency_rate)
+            
+            # Convert currency columns if needed
+            if currency != 'SEK':
+                conversion_factor = currency_rate / 11.5
+                # Create currency-specific columns
+                merged_df[f'price_{currency.lower()}_per_kwh'] = merged_df['price_sek_per_kwh'] * conversion_factor
+                merged_df[f'export_value_{currency.lower()}'] = merged_df['export_value_sek'] * conversion_factor
+                merged_df[f'price_daily_avg_{currency.lower()}_per_kwh'] = merged_df['price_sek_per_kwh'] * conversion_factor
+                merged_df[f'export_value_daily_{currency.lower()}'] = merged_df['export_value_sek'] * conversion_factor
+            
+            # Create CSV output
+            import io
+            output = io.StringIO()
+            merged_df.to_csv(output)
+            csv_content = output.getvalue()
+            
+            # Create filename
+            safe_filename = secure_filename(file.filename)
+            base_name = safe_filename.rsplit('.', 1)[0] if '.' in safe_filename else safe_filename
+            export_filename = f'{base_name}_analysis_{area}_{currency}.csv'
+            
+            # Create response
+            response = make_response(csv_content)
+            response.headers['Content-Type'] = 'text/csv'
+            response.headers['Content-Disposition'] = f'attachment; filename={export_filename}'
+            
+            return response
+            
+        finally:
+            # Clean up temporary file
+            try:
+                os.unlink(temp_filename)
+            except:
+                pass
+                
+    except Exception as e:
+        logger.error(f"Export analysis error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@api_blueprint.route('/analyze', methods=['POST'])
+def analyze_production():
+    """
+    Analyze production data against electricity prices.
+    
+    Expected form data:
+    - file: CSV file with production data
+    - area: Electricity area code (e.g., SE_4)
+    - currency: Currency for display (optional, default: SEK)
+    - start_date: Start date YYYY-MM-DD (optional)
+    - end_date: End date YYYY-MM-DD (optional)
+    """
+    try:
+        # Validate request
+        if 'file' not in request.files:
+            return jsonify({'error': 'No file provided'}), 400
+        
+        file = request.files['file']
+        if file.filename == '':
+            return jsonify({'error': 'No file selected'}), 400
+        
+        if not allowed_file(file.filename):
+            return jsonify({'error': 'Invalid file type. Only CSV files allowed'}), 400
+        
+        # Get parameters
+        area = request.form.get('area')
+        if not area:
+            return jsonify({'error': 'Area code is required'}), 400
+        
+        currency = request.form.get('currency', 'SEK').upper()
+        start_date = request.form.get('start_date')
+        end_date = request.form.get('end_date')
+        # SECURITY: Database path hardcoded for security
+        # db_path parameter removed from public API
+        
+        # Validate currency
+        try:
+            currency_rate = get_currency_rate(currency)
+        except ValueError as e:
+            return jsonify({'error': str(e)}), 400
+        
+        # Save uploaded file temporarily
+        with tempfile.NamedTemporaryFile(mode='w+b', suffix='.csv', delete=False) as temp_file:
+            file.save(temp_file.name)
+            temp_filename = temp_file.name
+        
+        try:
+            # Create components and run analysis
+            price_fetcher = PriceFetcher(db_path=SECURE_DB_PATH)
+            production_loader = ProductionLoader()
+            analyzer = PriceAnalyzer()
+            
+            # Load production data
+            production_df = production_loader.load_production_data(temp_filename)
+            
+            # Determine date range
+            production_start = pd.Timestamp(production_df.index.min(), tz='Europe/Stockholm')
+            production_end = pd.Timestamp(production_df.index.max(), tz='Europe/Stockholm')
+            
+            if start_date:
+                start_date = pd.Timestamp(start_date, tz='Europe/Stockholm')
+                if start_date > production_start:
+                    production_df = production_df[production_df.index >= start_date.tz_localize(None)]
+            else:
+                start_date = production_start
+                
+            if end_date:
+                end_date = pd.Timestamp(end_date, tz='Europe/Stockholm')
+                if end_date < production_end:
+                    production_df = production_df[production_df.index <= end_date.tz_localize(None)]
+            else:
+                end_date = production_end
+            
+            # Get price data
+            prices_df = price_fetcher.get_price_data(area, start_date, end_date)
+            
+            # Merge and analyze
+            merged_df = analyzer.merge_data(prices_df, production_df, currency_rate)
+            analysis = analyzer.analyze_data(merged_df)
+            
+            # Format response with appropriate currency
+            def format_price_response(price_eur_per_mwh):
+                if currency == 'EUR':
+                    return {
+                        'value': price_eur_per_mwh,
+                        'unit': 'EUR/MWh',
+                        'display': f"{price_eur_per_mwh:.2f} EUR/MWh"
+                    }
+                else:
+                    price_local_kwh = (price_eur_per_mwh * currency_rate) / 1000
+                    return {
+                        'value': price_local_kwh,
+                        'unit': f'{currency}/kWh',
+                        'display': f"{price_local_kwh:.4f} {currency}/kWh",
+                        'reference': f"{price_eur_per_mwh:.2f} EUR/MWh"
+                    }
+            
+            # Build response with data type conversion
+            response = {
+                'analysis': {
+                    'period': {
+                        'days': int(analysis['period_days']),
+                        'hours': int(analysis['total_hours']),
+                        'start': merged_df.index.min().isoformat(),
+                        'end': merged_df.index.max().isoformat()
+                    },
+                    'prices': {
+                        'currency': currency,
+                        'min': format_price_response(float(analysis['price_min_eur_mwh'])),
+                        'max': format_price_response(float(analysis['price_max_eur_mwh'])),
+                        'mean': format_price_response(float(analysis['price_mean_eur_mwh'])),
+                        'median': format_price_response(float(analysis['price_median_eur_mwh']))
+                    },
+                    'production': {
+                        'total_kwh': round(float(analysis['production_total']), 2),
+                        'average_hourly_kwh': round(float(analysis['production_mean']), 3),
+                        'max_hourly_kwh': round(float(analysis['production_max']), 3),
+                        'hours_with_production': int(analysis['hours_with_production'])
+                    },
+                    'negative_prices': {
+                        'hours_count': int(analysis['negative_price_hours']),
+                        'production_kwh': round(float(analysis['production_during_negative_prices']), 2),
+                        'average_production_kwh': round(float(analysis['avg_production_during_negative_prices']), 3),
+                        'lowest_price': format_price_response(float(analysis['price_min_eur_mwh'])) if analysis['negative_price_hours'] > 0 else None,
+                        'average_negative_price': format_price_response(float(analysis['price_mean_eur_mwh'])) if analysis['negative_price_hours'] > 0 else None,
+                        'total_cost': {
+                            'value': round(float(analysis['negative_export_cost_abs_sek']) * (currency_rate / 11.5), 2),  # Convert from SEK
+                            'currency': currency
+                        } if analysis['negative_price_hours'] > 0 else None
+                    },
+                    'export_value': {
+                        'total': {
+                            'value': round(float(analysis['total_export_value_sek']) * (currency_rate / 11.5), 2),  # Convert from SEK
+                            'currency': currency
+                        },
+                        'positive_prices': {
+                            'value': round(float(analysis['positive_export_value_sek']) * (currency_rate / 11.5), 2),  # Convert from SEK
+                            'currency': currency
+                        }
+                    }
+                },
+                'metadata': {
+                    'area_code': area,
+                    'currency': currency,
+                    'exchange_rate_eur': float(currency_rate),
+                    'file_processed': secure_filename(file.filename),
+                    'database_records_used': int(len(merged_df))
+                }
+            }
+            
+            return safe_jsonify(response)
+            
+        finally:
+            # Clean up temporary file
+            try:
+                os.unlink(temp_filename)
+            except:
+                pass
+                
+    except Exception as e:
+        logger.error(f"Analysis error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+@app.errorhandler(413)
+def too_large(e):
+    """Handle file too large error."""
+    return jsonify({'error': 'File too large. Maximum size is 16MB'}), 413
+
+# Graph Data Endpoints for Frontend
+
+@api_blueprint.route('/graph/price-timeline', methods=['GET'])
+def get_price_timeline():
+    """Get price data in timeline format for graphing."""
+    try:
+        # Get parameters
+        area = request.args.get('area')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        currency = request.args.get('currency', 'EUR')
+        # SECURITY: Database path hardcoded for security
+        resolution = request.args.get('resolution', 'hourly')  # hourly, daily, weekly
+        
+        if not area:
+            return jsonify({'error': 'Area code is required'}), 400
+            
+        # Get data from database directly
+        if not Path(SECURE_DB_PATH).exists():
+            return jsonify({'error': f'Database not found'}), 404
+            
+        with sqlite3.connect(SECURE_DB_PATH) as conn:
+            # Build query with optional date filtering
+            if start_date and end_date:
+                query = '''SELECT datetime, price_eur_per_mwh FROM price_data 
+                          WHERE area_code = ? AND datetime BETWEEN ? AND ? 
+                          ORDER BY datetime'''
+                df = pd.read_sql_query(query, conn, params=[area, start_date, end_date])
+            elif start_date:
+                query = '''SELECT datetime, price_eur_per_mwh FROM price_data 
+                          WHERE area_code = ? AND datetime >= ? 
+                          ORDER BY datetime'''
+                df = pd.read_sql_query(query, conn, params=[area, start_date])
+            elif end_date:
+                query = '''SELECT datetime, price_eur_per_mwh FROM price_data 
+                          WHERE area_code = ? AND datetime <= ? 
+                          ORDER BY datetime'''
+                df = pd.read_sql_query(query, conn, params=[area, end_date])
+            else:
+                query = '''SELECT datetime, price_eur_per_mwh FROM price_data 
+                          WHERE area_code = ? ORDER BY datetime'''
+                df = pd.read_sql_query(query, conn, params=[area])
+                
+        if df.empty:
+            return jsonify({'error': f'No data found for area {area}'}), 404
+            
+        # Convert datetime to pandas datetime index
+        df['datetime'] = pd.to_datetime(df['datetime'])
+        df.set_index('datetime', inplace=True)
+            
+        # Get exchange rate
+        currency_rate = CURRENCY_RATES.get(currency, 1.0)
+        
+        # Process data based on resolution
+        if resolution == 'daily':
+            df_resampled = df.resample('D').agg({
+                'price_eur_per_mwh': ['mean', 'min', 'max', 'std']
+            }).round(2)
+            df_resampled.columns = ['price_mean', 'price_min', 'price_max', 'price_std']
+        elif resolution == 'weekly':
+            df_resampled = df.resample('W').agg({
+                'price_eur_per_mwh': ['mean', 'min', 'max', 'std']
+            }).round(2)
+            df_resampled.columns = ['price_mean', 'price_min', 'price_max', 'price_std']
+        else:  # hourly (default)
+            df_resampled = df.copy()
+            df_resampled['price_mean'] = df_resampled['price_eur_per_mwh']
+            df_resampled['price_min'] = df_resampled['price_eur_per_mwh'] 
+            df_resampled['price_max'] = df_resampled['price_eur_per_mwh']
+            df_resampled['price_std'] = 0
+            
+        # Convert to target currency
+        for col in ['price_mean', 'price_min', 'price_max']:
+            df_resampled[col] = df_resampled[col] * currency_rate
+            
+        # Build timeline data
+        timeline_data = []
+        for timestamp, row in df_resampled.iterrows():
+            timeline_data.append({
+                'timestamp': timestamp.isoformat(),
+                'price': round(float(row['price_mean']), 2),
+                'price_min': round(float(row['price_min']), 2) if resolution != 'hourly' else None,
+                'price_max': round(float(row['price_max']), 2) if resolution != 'hourly' else None,
+                'price_std': round(float(row['price_std']), 2) if resolution != 'hourly' else None,
+                'is_negative': float(row['price_mean']) < 0
+            })
+            
+        return jsonify({
+            'area': area,
+            'currency': currency,
+            'resolution': resolution,
+            'data_points': len(timeline_data),
+            'date_range': {
+                'start': df_resampled.index.min().isoformat(),
+                'end': df_resampled.index.max().isoformat()
+            },
+            'timeline': timeline_data,
+            'statistics': {
+                'min_price': round(float(df_resampled['price_min'].min()), 2),
+                'max_price': round(float(df_resampled['price_max'].max()), 2),
+                'avg_price': round(float(df_resampled['price_mean'].mean()), 2),
+                'negative_hours': int((df_resampled['price_mean'] < 0).sum())
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting price timeline: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@api_blueprint.route('/graph/price-distribution', methods=['GET'])
+def get_price_distribution():
+    """Get price distribution data for histograms."""
+    try:
+        # Get parameters
+        area = request.args.get('area')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        currency = request.args.get('currency', 'EUR')
+        # SECURITY: Database path hardcoded for security
+        bins = int(request.args.get('bins', 50))
+        
+        if not area:
+            return jsonify({'error': 'Area code is required'}), 400
+            
+        # Get data from database directly
+        if not Path(SECURE_DB_PATH).exists():
+            return jsonify({'error': f'Database not found'}), 404
+            
+        with sqlite3.connect(SECURE_DB_PATH) as conn:
+            # Build query with optional date filtering
+            if start_date and end_date:
+                query = '''SELECT price_eur_per_mwh FROM price_data 
+                          WHERE area_code = ? AND datetime BETWEEN ? AND ?'''
+                df = pd.read_sql_query(query, conn, params=[area, start_date, end_date])
+            elif start_date:
+                query = '''SELECT price_eur_per_mwh FROM price_data 
+                          WHERE area_code = ? AND datetime >= ?'''
+                df = pd.read_sql_query(query, conn, params=[area, start_date])
+            elif end_date:
+                query = '''SELECT price_eur_per_mwh FROM price_data 
+                          WHERE area_code = ? AND datetime <= ?'''
+                df = pd.read_sql_query(query, conn, params=[area, end_date])
+            else:
+                query = '''SELECT price_eur_per_mwh FROM price_data 
+                          WHERE area_code = ?'''
+                df = pd.read_sql_query(query, conn, params=[area])
+                
+        if df.empty:
+            return jsonify({'error': f'No data found for area {area}'}), 404
+            
+        # Get exchange rate and convert prices
+        currency_rate = CURRENCY_RATES.get(currency, 1.0)
+        prices = df['price_eur_per_mwh'] * currency_rate
+        
+        # Calculate histogram
+        import numpy as np
+        hist, bin_edges = np.histogram(prices, bins=bins)
+        
+        # Build distribution data
+        distribution_data = []
+        for i in range(len(hist)):
+            distribution_data.append({
+                'bin_start': round(float(bin_edges[i]), 2),
+                'bin_end': round(float(bin_edges[i + 1]), 2),
+                'bin_center': round(float((bin_edges[i] + bin_edges[i + 1]) / 2), 2),
+                'count': int(hist[i]),
+                'percentage': round(float(hist[i] / len(prices) * 100), 2)
+            })
+            
+        # Get the date range for response
+        with sqlite3.connect(SECURE_DB_PATH) as conn:
+            date_query = '''SELECT MIN(datetime), MAX(datetime) FROM price_data 
+                           WHERE area_code = ?'''
+            if start_date and end_date:
+                date_query += ' AND datetime BETWEEN ? AND ?'
+                date_range = conn.execute(date_query, [area, start_date, end_date]).fetchone()
+            elif start_date:
+                date_query += ' AND datetime >= ?'
+                date_range = conn.execute(date_query, [area, start_date]).fetchone()
+            elif end_date:
+                date_query += ' AND datetime <= ?'
+                date_range = conn.execute(date_query, [area, end_date]).fetchone()
+            else:
+                date_range = conn.execute(date_query, [area]).fetchone()
+                
+        return jsonify({
+            'area': area,
+            'currency': currency,
+            'total_hours': len(prices),
+            'date_range': {
+                'start': date_range[0] if date_range and date_range[0] else None,
+                'end': date_range[1] if date_range and date_range[1] else None
+            },
+            'distribution': distribution_data,
+            'statistics': {
+                'min_price': round(float(prices.min()), 2),
+                'max_price': round(float(prices.max()), 2),
+                'mean_price': round(float(prices.mean()), 2),
+                'median_price': round(float(prices.median()), 2),
+                'std_price': round(float(prices.std()), 2),
+                'negative_hours': int((prices < 0).sum()),
+                'negative_percentage': round(float((prices < 0).sum() / len(prices) * 100), 2)
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting price distribution: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@api_blueprint.route('/graph/negative-price-periods', methods=['GET'])
+def get_negative_price_periods():
+    """Get negative price periods data for visualization."""
+    try:
+        # Get parameters
+        area = request.args.get('area')
+        start_date = request.args.get('start_date')
+        end_date = request.args.get('end_date')
+        currency = request.args.get('currency', 'EUR')
+        # SECURITY: Database path hardcoded for security
+        
+        if not area:
+            return jsonify({'error': 'Area code is required'}), 400
+            
+        # Get data from database directly
+        if not Path(SECURE_DB_PATH).exists():
+            return jsonify({'error': f'Database not found'}), 404
+            
+        with sqlite3.connect(SECURE_DB_PATH) as conn:
+            # Build query with optional date filtering
+            if start_date and end_date:
+                query = '''SELECT datetime, price_eur_per_mwh FROM price_data 
+                          WHERE area_code = ? AND datetime BETWEEN ? AND ? 
+                          ORDER BY datetime'''
+                df = pd.read_sql_query(query, conn, params=[area, start_date, end_date])
+            elif start_date:
+                query = '''SELECT datetime, price_eur_per_mwh FROM price_data 
+                          WHERE area_code = ? AND datetime >= ? 
+                          ORDER BY datetime'''
+                df = pd.read_sql_query(query, conn, params=[area, start_date])
+            elif end_date:
+                query = '''SELECT datetime, price_eur_per_mwh FROM price_data 
+                          WHERE area_code = ? AND datetime <= ? 
+                          ORDER BY datetime'''
+                df = pd.read_sql_query(query, conn, params=[area, end_date])
+            else:
+                query = '''SELECT datetime, price_eur_per_mwh FROM price_data 
+                          WHERE area_code = ? ORDER BY datetime'''
+                df = pd.read_sql_query(query, conn, params=[area])
+                
+        if df.empty:
+            return jsonify({'error': f'No data found for area {area}'}), 404
+            
+        # Convert datetime to pandas datetime index
+        df['datetime'] = pd.to_datetime(df['datetime'])
+        df.set_index('datetime', inplace=True)
+            
+        # Get exchange rate and convert prices
+        currency_rate = CURRENCY_RATES.get(currency, 1.0)
+        df['price_converted'] = df['price_eur_per_mwh'] * currency_rate
+        
+        # Find negative price periods
+        negative_mask = df['price_converted'] < 0
+        negative_periods = []
+        
+        if negative_mask.any():
+            # Group consecutive negative hours
+            changes = negative_mask.diff().fillna(False)
+            period_starts = df[changes & negative_mask].index
+            period_ends = df[changes & ~negative_mask].index
+            
+            # Handle case where negative period extends to end of data
+            if len(period_starts) > len(period_ends):
+                period_ends = period_ends.append(pd.Index([df.index[-1]]))
+                
+            # Handle case where data starts with negative period
+            if len(period_ends) > len(period_starts):
+                period_starts = pd.Index([df.index[0]]).append(period_starts)
+                
+            for start, end in zip(period_starts, period_ends):
+                period_data = df.loc[start:end]
+                if (period_data['price_converted'] < 0).any():
+                    # Find actual start and end of negative period
+                    neg_data = period_data[period_data['price_converted'] < 0]
+                    if not neg_data.empty:
+                        negative_periods.append({
+                            'start': neg_data.index.min().isoformat(),
+                            'end': neg_data.index.max().isoformat(),
+                            'duration_hours': len(neg_data),
+                            'min_price': round(float(neg_data['price_converted'].min()), 2),
+                            'avg_price': round(float(neg_data['price_converted'].mean()), 2),
+                            'hourly_prices': [
+                                {
+                                    'timestamp': ts.isoformat(),
+                                    'price': round(float(price), 2)
+                                }
+                                for ts, price in neg_data['price_converted'].items()
+                            ]
+                        })
+        
+        return jsonify({
+            'area': area,
+            'currency': currency,
+            'total_hours': len(df),
+            'negative_hours': int((df['price_converted'] < 0).sum()),
+            'date_range': {
+                'start': df.index.min().isoformat() if not df.empty else None,
+                'end': df.index.max().isoformat() if not df.empty else None
+            },
+            'negative_periods': negative_periods,
+            'statistics': {
+                'total_negative_periods': len(negative_periods),
+                'total_negative_hours': sum(p['duration_hours'] for p in negative_periods),
+                'longest_period_hours': max((p['duration_hours'] for p in negative_periods), default=0),
+                'lowest_price': round(float(df['price_converted'].min()), 2) if not df.empty else None,
+                'avg_negative_price': round(float(df[df['price_converted'] < 0]['price_converted'].mean()), 2) if (df['price_converted'] < 0).any() else None
+            }
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting negative price periods: {str(e)}")
+        return jsonify({'error': str(e)}), 500
+
+@app.errorhandler(404)
+def not_found(e):
+    """Handle not found error."""
+    return jsonify({'error': 'Endpoint not found'}), 404
+
+@app.errorhandler(500)
+def internal_error(e):
+    """Handle internal server error."""
+    return jsonify({'error': 'Internal server error'}), 500
+
+# Register API Blueprint with /api prefix
+app.register_blueprint(api_blueprint, url_prefix='/api')
+
+# Web Routes
+@app.route('/')
+def index():
+    """Main web interface."""
+    return render_template('index.html', message="Accelerating Energy Optimization")
+
+if __name__ == '__main__':
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Price Production Analysis Flask API')
+    parser.add_argument('--host', default='127.0.0.1', help='Host to bind to (default: 127.0.0.1)')
+    parser.add_argument('--port', type=int, default=5000, help='Port to bind to (default: 5000)')
+    parser.add_argument('--debug', action='store_true', help='Enable debug mode')
+    
+    args = parser.parse_args()
+    
+    print(f"Starting Price Production Analysis API on {args.host}:{args.port}")
+    print(f"Debug mode: {args.debug}")
+    print("\nWeb Interface:")
+    print(f"  http://{args.host}:{args.port}/                - Main web interface")
+    print("\nAPI endpoints:")
+    print("  GET    /api/health                    - Health check")
+    print("  GET    /api/currencies               - List supported currencies")
+    print("  GET    /api/database/info            - Database information")
+    print("  GET    /api/database/areas           - List available areas")
+    print("  POST   /api/detect-csv-format        - Detect CSV file format")
+    print("  POST   /api/analyze                  - Analyze production data")
+    print("  POST   /api/analyze/daily-summary    - Daily summary analysis")
+    print("  POST   /api/analyze/negative-prices  - Negative price analysis")
+    print("  POST   /api/analyze/export           - Analyze and export CSV")
+    print("  GET    /api/docs                     - API documentation")
+    print("  GET    /api/graph/price-timeline     - Price timeline for graphing")
+    print("  GET    /api/graph/price-distribution - Price distribution histogram")
+    print("  GET    /api/graph/negative-price-periods - Negative price periods")
+    print(f"\nAPI Documentation: http://{args.host}:{args.port}/api/docs")
+    
+    app.run(host=args.host, port=args.port, debug=args.debug)

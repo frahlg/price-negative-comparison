@@ -1,0 +1,108 @@
+/* Sourceful Energy Custom Styles */
+
+body {
+    background: #f8f9fa;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.text-primary {
+    color: #0066cc !important;
+}
+
+.hero-section {
+    background: linear-gradient(135deg, rgba(0, 102, 204, 0.1) 0%, rgba(40, 167, 69, 0.1) 100%);
+    border-radius: 15px;
+    margin-bottom: 2rem;
+}
+
+.feature-icon {
+    width: 60px;
+    height: 60px;
+    font-size: 1.5rem;
+}
+
+.card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.card:hover {
+    transform: translateY(-5px);
+}
+
+.upload-preview {
+    border: 2px dashed #dee2e6;
+    transition: border-color 0.3s ease;
+}
+
+.upload-preview:hover {
+    border-color: #0066cc;
+}
+
+.api-status {
+    background: rgba(255, 255, 255, 0.8);
+    border-radius: 8px;
+    padding: 0.5rem;
+}
+
+/* Custom button styles */
+.btn-primary {
+    background-color: #0066cc;
+    border-color: #0066cc;
+}
+
+.btn-primary:hover {
+    background-color: #0052a3;
+    border-color: #0052a3;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .display-4 {
+        font-size: 2rem;
+    }
+    
+    .display-5 {
+        font-size: 1.5rem;
+    }
+    
+    .hero-section {
+        padding: 2rem 1rem !important;
+    }
+}
+
+/* Loading animations for future use */
+.loading {
+    opacity: 0.7;
+    pointer-events: none;
+}
+
+.spinner-grow-sm {
+    width: 1rem;
+    height: 1rem;
+}
+
+/* Progress bar styling for future upload feature */
+.progress {
+    height: 8px;
+    border-radius: 4px;
+}
+
+.progress-bar {
+    background-color: #0066cc;
+}
+
+/* Alert styling */
+.alert-custom {
+    border-radius: 8px;
+    border: none;
+}
+
+.alert-success-custom {
+    background-color: rgba(40, 167, 69, 0.1);
+    color: #155724;
+}
+
+.alert-danger-custom {
+    background-color: rgba(220, 53, 69, 0.1);
+    color: #721c24;
+}

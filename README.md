@@ -17,8 +17,9 @@ A comprehensive system for analyzing electricity prices and solar production dat
 - **Fallback to traditional parsing** for reliability
 
 ### REST API
-- **Complete Flask REST API** with 6 endpoints
-- **File upload and analysis** capabilities
+- **Complete Flask REST API** with 15 endpoints
+- **Frontend-ready graph data endpoints** for price visualization
+- **File upload and analysis** capabilities  
 - **Real-time format detection** with AI or traditional methods
 - **Database integration** with price data management
 
@@ -254,16 +255,20 @@ For issues and questions:
 
 ### Recent Features
 - ✅ AI-powered CSV format detection with xAI Grok
-- ✅ Enhanced Flask API with 6 endpoints
+- ✅ **Enhanced Flask API with 12 endpoints** - complete CLI feature coverage
+- ✅ **Database management via API** - clear, export, and manage price data
+- ✅ **Advanced analysis endpoints** - daily summaries and negative price focus
+- ✅ **CSV export functionality** - download merged analysis data
+- ✅ **Built-in API documentation** - interactive docs at `/docs` endpoint
 - ✅ Smart fallback parsing system
 - ✅ European CSV format support
-- ✅ Multi-currency analysis
-- ✅ Database management utilities
+- ✅ Multi-currency analysis (6 currencies)
 - ✅ **Modular architecture** with separated concerns
-- ✅ **Improved code organization** for maintainability
+- ✅ **Frontend-ready API** - complete REST interface for web development
 
 ### Roadmap
-- [ ] Web interface for analysis
+- [ ] **Web interface for analysis** (ready for development with enhanced API)
 - [ ] Real-time price monitoring
 - [ ] Advanced forecasting models
 - [ ] Additional data source integrations
+- [ ] Interactive charts and visualizations

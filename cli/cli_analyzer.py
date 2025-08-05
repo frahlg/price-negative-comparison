@@ -8,10 +8,15 @@ Command-line interface for running price and production analysis.
 import argparse
 import pandas as pd
 import logging
+import sys
 from pathlib import Path
-from price_fetcher import PriceFetcher
-from production_loader import ProductionLoader
-from price_analyzer import PriceAnalyzer
+
+# Add the parent directory to the path to access core modules
+sys.path.append(str(Path(__file__).parent.parent))
+
+from core.price_fetcher import PriceFetcher
+from core.production_loader import ProductionLoader
+from core.price_analyzer import PriceAnalyzer
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')

@@ -16,9 +16,12 @@ import argparse
 import sys
 from pathlib import Path
 
-from cli_analyzer import AnalysisPipeline
-from negative_price_analysis import analyze_negative_pricing
-from db_manager import PriceDatabaseManager
+# Add the parent directory to the path to access modules
+sys.path.append(str(Path(__file__).parent.parent))
+
+from cli.cli_analyzer import AnalysisPipeline
+from core.negative_price_analysis import analyze_negative_pricing
+from core.db_manager import PriceDatabaseManager
 
 
 def main():
