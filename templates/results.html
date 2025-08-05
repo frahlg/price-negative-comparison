@@ -1,705 +1,243 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Analysis Results - Sourceful Energy</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
+    <title>ANALYSRESULTAT - SOURCEFUL ENERGY TERMINAL</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
 </head>
 <body>
-    <!-- Header Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-        <div class="container">
-            <a class="navbar-brand d-flex align-items-center" href="/">
-                <img src="https://docs.sourceful.energy/assets/files/Sourceful-Logo-Wide-Teal-eb6845162483f6d470562338a87f7dc0.png" 
-                     alt="Sourceful Energy" class="logo-header me-3">
-                <div>
-                    <span class="fw-bold text-primary fs-4">Sourceful Energy</span>
-                    <div class="small text-muted">Analysis Results</div>
-                </div>
-            </a>
-            <span class="badge bg-success ms-auto">Analysis Complete</span>
+    <div class="terminal-container">
+        <!-- Terminal Header -->
+        <div class="terminal-system-info">
+            SOURCEFUL ENERGY ANALYSIS SYSTEM v1.0<br>
+            ANALYSRESULTAT GENERERAT<br>
+            READY.
         </div>
-    </nav>
 
-    <!-- Flash Messages -->
-    {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-            <div class="container mt-3">
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
                 {% for category, message in messages %}
-                    <div class="alert alert-{{ 'danger' if category == 'error' else 'success' if category == 'success' else 'info' }} alert-dismissible fade show" role="alert">
-                        {{ message }}
-                        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                    <div class="terminal-{{ 'error' if category == 'error' else 'success' if category == 'success' else 'info' }}">
+                        {{ category.upper() }}: {{ message }}
                     </div>
                 {% endfor %}
-            </div>
+            {% endif %}
+        {% endwith %}
+
+        <!-- ASCII Art Logo -->
+        <div class="terminal-ascii">
+█████╗ ███╗   ██╗ █████╗ ██╗  ██╗   ██╗███████╗
+██╔══██╗████╗  ██║██╔══██╗██║  ╚██╗ ██╔╝██╔════╝
+███████║██╔██╗ ██║███████║██║   ╚████╔╝ ███████╗
+██╔══██║██║╚██╗██║██╔══██║██║    ╚██╔╝  ╚════██║
+██║  ██║██║ ╚████║██║  ██║███████╗██║   ███████║
+╚═╝  ╚═╝╚═╝  ╚═══╝╚═╝  ╚═╝╚══════╝╚═╝   ╚══════╝
+            KOMPLETT ANALYS SLUTFÖRD
+        </div>
+
+        <div class="terminal-divider"></div>
+
+        <!-- AI Explanation Section -->
+        {% if results and results.ai_explanation %}
+        <div class="terminal-prompt">AI-ANALYS OCH INSIKTER:</div>
+        <div class="terminal-text" style="background: rgba(0, 255, 0, 0.1); padding: 15px; margin: 10px 0; border-left: 3px solid #00ff00;">
+            {{ results.ai_explanation | safe }}
+        </div>
+        <div class="terminal-divider"></div>
         {% endif %}
-    {% endwith %}
 
-    <!-- Results Header -->
-    <section class="py-4 bg-light">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-8">
-                    <h1 class="display-6 fw-bold text-primary mb-2">
-                        <i class="bi bi-graph-up me-3"></i>
-                        Analysis Results
-                    </h1>
-                    <p class="text-muted mb-0">
-                        Analysis for {{ results.metadata.file_name }} in {{ results.metadata.area_code }} 
-                        ({{ results.metadata.currency }})
-                    </p>
-                </div>
-                <div class="col-md-4 text-end">
-                    <a href="/" class="btn btn-primary me-2">
-                        <i class="bi bi-arrow-left me-2"></i>New Analysis
-                    </a>
-                    <button class="btn btn-outline-primary" onclick="window.print()">
-                        <i class="bi bi-printer me-2"></i>Print
-                    </button>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- AI Explanation Section -->
-    {% if results.ai_explanation %}
-    <section class="py-4 explanation-gradient-bg">
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-lg-10">
-                    <div class="card border-0 shadow-lg ai-explanation-card">
-                        <div class="card-body p-4">
-                            <div class="row align-items-center mb-3">
-                                <div class="col">
-                                    <h4 class="card-title fw-bold mb-0 text-primary">
-                                        <i class="bi bi-lightbulb-fill me-2"></i>
-                                        AI Analysis Summary
-                                    </h4>
-                                </div>
-                                <div class="col-auto">
-                                    <span class="badge ai-badge">
-                                        <i class="bi bi-robot me-1"></i>AI Generated
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="explanation-text" style="line-height: 1.7; font-size: 1.05rem;">
-                                <p class="mb-3">{{ results.ai_explanation|replace('\n\n', '</p><p class="mb-3">')|replace('\n', '<br>')|safe }}</p>
-                            </div>
-                            <div class="mt-3 pt-3 border-top">
-                                <small class="text-muted">
-                                    <i class="bi bi-info-circle me-1"></i>
-                                    This explanation is generated by AI to help you understand your energy production analysis. 
-                                    For detailed technical data, see the metrics and charts below.
-                                </small>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
-    {% endif %}
-
-    <!-- Key Metrics Cards -->
-    <section class="py-5">
-        <div class="container">
-            <!-- Period Information -->
-            <div class="row mb-4">
-                <div class="col-12">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body">
-                            <div class="row">
-                                <div class="col-md-3">
-                                    <div class="text-center">
-                                        <i class="bi bi-calendar-range text-primary fs-3 mb-2"></i>
-                                        <h6 class="fw-bold">Analysis Period</h6>
-                                        <p class="mb-0">{{ results.analysis.period_days }} days</p>
-                                        <small class="text-muted">{{ results.analysis.total_hours }} hours</small>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="text-center">
-                                        <i class="bi bi-geo-alt text-info fs-3 mb-2"></i>
-                                        <h6 class="fw-bold">Electricity Area</h6>
-                                        <p class="mb-0">{{ results.metadata.area_code }}</p>
-                                        <small class="text-muted">Price data region</small>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="text-center">
-                                        <i class="bi bi-currency-exchange text-success fs-3 mb-2"></i>
-                                        <h6 class="fw-bold">Currency</h6>
-                                        <p class="mb-0">{{ results.metadata.currency }}</p>
-                                        <small class="text-muted">Rate: {{ "%.3f"|format(results.metadata.currency_rate) }}</small>
-                                    </div>
-                                </div>
-                                <div class="col-md-3">
-                                    <div class="text-center">
-                                        <i class="bi bi-database text-warning fs-3 mb-2"></i>
-                                        <h6 class="fw-bold">Data Points</h6>
-                                        <p class="mb-0">{{ results.metadata.data_points }}</p>
-                                        <small class="text-muted">Hourly records</small>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Production Metrics -->
-            <div class="row g-4 mb-5">
-                <div class="col-md-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body text-center">
-                            <div class="metric-icon bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
-                                <i class="bi bi-lightning-charge fs-3"></i>
-                            </div>
-                            <h5 class="card-title fw-bold text-success">Total Production</h5>
-                            <h3 class="text-success mb-1">{{ "%.1f"|format(results.analysis.production_total) }}</h3>
-                            <p class="text-muted mb-0">kWh</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body text-center">
-                            <div class="metric-icon bg-info text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
-                                <i class="bi bi-speedometer2 fs-3"></i>
-                            </div>
-                            <h5 class="card-title fw-bold text-info">Average Hourly</h5>
-                            <h3 class="text-info mb-1">{{ "%.2f"|format(results.analysis.production_mean) }}</h3>
-                            <p class="text-muted mb-0">kWh/hour</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body text-center">
-                            <div class="metric-icon bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
-                                <i class="bi bi-graph-up-arrow fs-3"></i>
-                            </div>
-                            <h5 class="card-title fw-bold text-primary">Peak Production</h5>
-                            <h3 class="text-primary mb-1">{{ "%.2f"|format(results.analysis.production_max) }}</h3>
-                            <p class="text-muted mb-0">kWh/hour</p>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="col-md-3">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body text-center">
-                            <div class="metric-icon bg-secondary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-3">
-                                <i class="bi bi-clock fs-3"></i>
-                            </div>
-                            <h5 class="card-title fw-bold text-secondary">Active Hours</h5>
-                            <h3 class="text-secondary mb-1">{{ results.analysis.hours_with_production }}</h3>
-                            <p class="text-muted mb-0">hours</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Enhanced Negative Price Analysis -->
-            <div class="row g-4 mb-5">
-                <div class="col-12">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body">
-                            <h5 class="card-title fw-bold mb-4">
-                                <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
-                                Negative Price Analysis
-                            </h5>
-                            <div class="row">
-                                <div class="col-md-2 text-center">
-                                    <h6 class="fw-bold text-danger">Hours</h6>
-                                    <h4 class="text-danger mb-1">{{ results.analysis.negative_price_hours }}</h4>
-                                    <small class="text-muted">{{ "%.1f"|format(results.analysis.negative_price_percentage|default(0)) }}% of time</small>
-                                </div>
-                                <div class="col-md-2 text-center">
-                                    <h6 class="fw-bold text-warning">Production</h6>
-                                    <h4 class="text-warning mb-1">{{ "%.1f"|format(results.analysis.production_during_negative_prices) }}</h4>
-                                    <small class="text-muted">kWh ({{ "%.1f"|format(results.analysis.production_percentage_negative_prices|default(0)) }}%)</small>
-                                </div>
-                                <div class="col-md-2 text-center">
-                                    <h6 class="fw-bold text-danger">Total Cost</h6>
-                                    <h4 class="text-danger mb-1">{{ "%.2f"|format(results.analysis.negative_export_cost_abs_sek * (results.metadata.currency_rate / 11.5)) }}</h4>
-                                    <small class="text-muted">{{ results.metadata.currency }}</small>
-                                </div>
-                                <div class="col-md-3 text-center">
-                                    <h6 class="fw-bold text-info">Worst Period</h6>
-                                    {% if results.analysis.worst_negative_price_datetime %}
-                                    <h4 class="text-info mb-1">{{ "%.4f"|format((results.analysis.worst_negative_price_eur_mwh * results.metadata.currency_rate) / 1000) }}</h4>
-                                    <small class="text-muted">{{ results.metadata.currency }}/kWh<br>{{ results.analysis.worst_negative_price_datetime[:16] }}</small>
-                                    {% else %}
-                                    <h4 class="text-success mb-1">None</h4>
-                                    <small class="text-muted">No negative prices</small>
-                                    {% endif %}
-                                </div>
-                                <div class="col-md-3 text-center">
-                                    <h6 class="fw-bold text-secondary">Impact</h6>
-                                    <h4 class="text-secondary mb-1">{{ "%.1f"|format((results.analysis.negative_export_cost_abs_sek / results.analysis.total_export_value_sek) * 100) if results.analysis.total_export_value_sek > 0 else 0 }}%</h4>
-                                    <small class="text-muted">of total value</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Financial Metrics -->
-            <div class="row g-4 mb-5">
-                <div class="col-md-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <h5 class="card-title fw-bold mb-4">
-                                <i class="bi bi-cash-coin text-success me-2"></i>
-                                Export Value
-                            </h5>
-                            <div class="row">
-                                <div class="col-6 text-center">
-                                    <h4 class="text-success mb-1">
-                                        {{ "%.2f"|format(results.analysis.total_export_value_sek * (results.metadata.currency_rate / 11.5)) }}
-                                    </h4>
-                                    <p class="text-muted mb-0">Total {{ results.metadata.currency }}</p>
-                                </div>
-                                <div class="col-6 text-center">
-                                    <h4 class="text-info mb-1">
-                                        {{ "%.2f"|format(results.analysis.positive_export_value_sek * (results.metadata.currency_rate / 11.5)) }}
-                                    </h4>
-                                    <p class="text-muted mb-0">Positive Prices</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="card border-0 shadow-sm h-100">
-                        <div class="card-body">
-                            <h5 class="card-title fw-bold mb-4">
-                                <i class="bi bi-calculator text-primary me-2"></i>
-                                Performance Metrics
-                            </h5>
-                            <div class="row">
-                                <div class="col-6 text-center">
-                                    <h4 class="text-primary mb-1">
-                                        {{ "%.2f"|format(results.analysis.production_total / results.analysis.period_days) if results.analysis.period_days > 0 else 0 }}
-                                    </h4>
-                                    <p class="text-muted mb-0">kWh/day avg</p>
-                                </div>
-                                <div class="col-6 text-center">
-                                    <h4 class="text-warning mb-1">
-                                        {{ "%.4f"|format((results.analysis.total_export_value_sek / results.analysis.production_total) * (results.metadata.currency_rate / 11.5)) if results.analysis.production_total > 0 else 0 }}
-                                    </h4>
-                                    <p class="text-muted mb-0">{{ results.metadata.currency }}/kWh avg</p>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Price Statistics -->
-            <div class="row g-4 mb-5">
-                <div class="col-12">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body">
-                            <h5 class="card-title fw-bold mb-4">
-                                <i class="bi bi-graph-down text-primary me-2"></i>
-                                Price Statistics
-                            </h5>
-                            <div class="row">
-                                <div class="col-md-3 text-center">
-                                    <h6 class="fw-bold text-success">Minimum Price</h6>
-                                    <h4 class="text-success">
-                                        {{ "%.4f"|format((results.analysis.price_min_eur_mwh * results.metadata.currency_rate) / 1000) }}
-                                    </h4>
-                                    <small class="text-muted">{{ results.metadata.currency }}/kWh</small>
-                                </div>
-                                <div class="col-md-3 text-center">
-                                    <h6 class="fw-bold text-info">Average Price</h6>
-                                    <h4 class="text-info">
-                                        {{ "%.4f"|format((results.analysis.price_mean_eur_mwh * results.metadata.currency_rate) / 1000) }}
-                                    </h4>
-                                    <small class="text-muted">{{ results.metadata.currency }}/kWh</small>
-                                </div>
-                                <div class="col-md-3 text-center">
-                                    <h6 class="fw-bold text-warning">Median Price</h6>
-                                    <h4 class="text-warning">
-                                        {{ "%.4f"|format((results.analysis.price_median_eur_mwh * results.metadata.currency_rate) / 1000) }}
-                                    </h4>
-                                    <small class="text-muted">{{ results.metadata.currency }}/kWh</small>
-                                </div>
-                                <div class="col-md-3 text-center">
-                                    <h6 class="fw-bold text-danger">Maximum Price</h6>
-                                    <h4 class="text-danger">
-                                        {{ "%.4f"|format((results.analysis.price_max_eur_mwh * results.metadata.currency_rate) / 1000) }}
-                                    </h4>
-                                    <small class="text-muted">{{ results.metadata.currency }}/kWh</small>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Simplified Charts Section -->
-            {% if results.analysis.negative_price_hours > 0 %}
-            <div class="row g-4 mb-5">
-                <div class="col-12">
-                    <div class="card border-0 shadow-sm border-warning">
-                        <div class="card-body">
-                            <h5 class="card-title fw-bold mb-4">
-                                <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
-                                Negative Price Periods - When You Had to Pay to Export
-                            </h5>
-                            <p class="text-muted mb-3">
-                                This chart shows exactly when electricity prices went negative and how much energy you were producing during those costly periods.
-                                The size of each dot represents how much energy you produced during that negative price period.
-                            </p>
-                            <div style="height: 400px;">
-                                <canvas id="negativePriceChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            {% endif %}
-
-            <!-- Simple Production Overview -->
-            <div class="row g-4 mb-5">
-                <div class="col-md-6">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body">
-                            <h5 class="card-title fw-bold mb-4">
-                                <i class="bi bi-pie-chart text-info me-2"></i>
-                                Time Analysis
-                            </h5>
-                            <div style="height: 300px;">
-                                <canvas id="timeDistributionChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                <div class="col-md-6">
-                    <div class="card border-0 shadow-sm">
-                        <div class="card-body">
-                            <h5 class="card-title fw-bold mb-4">
-                                <i class="bi bi-bar-chart text-success me-2"></i>
-                                Production vs Value
-                            </h5>
-                            <div style="height: 300px;">
-                                <canvas id="productionValueChart"></canvas>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Actions -->
-            <div class="row">
-                <div class="col-12 text-center">
-                    <a href="/" class="btn btn-primary btn-lg me-3">
-                        <i class="bi bi-arrow-left me-2"></i>
-                        Analyze Another File
-                    </a>
-                    <button class="btn btn-outline-primary btn-lg me-3" onclick="window.print()">
-                        <i class="bi bi-printer me-2"></i>
-                        Print Results
-                    </button>
-                    <a href="/status" class="btn btn-outline-secondary btn-lg">
-                        <i class="bi bi-info-circle me-2"></i>
-                        System Status
-                    </a>
-                </div>
-            </div>
-        </div>
-    </section>
-
-    <!-- Footer -->
-    <footer class="footer bg-dark text-light py-4">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center">
-                        <img src="https://docs.sourceful.energy/assets/files/Sourceful-Logo-Wide-Light-3469afb6868bc31c6223997a8af6f64c.png" 
-                             alt="Sourceful Energy" class="logo-footer me-3">
-                        <small class="text-light-50">© 2025 Sourceful Energy</small>
-                    </div>
-                </div>
-                <div class="col-md-6 text-end">
-                    <small class="text-light-50">Analysis completed successfully</small>
-                </div>
-            </div>
-        </div>
-    </footer>
-
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Analysis Data -->
-    <script>
-        // Pass analysis data to JavaScript
-        window.analysisData = {
-            metadata: {{ results.metadata | tojson }},
-            analysis: {{ results.analysis | tojson }},
-            {% if results.analysis.time_series %}
-            timeSeries: {{ results.analysis.time_series | tojson }},
-            {% else %}
-            timeSeries: null,
-            {% endif %}
-            {% if results.analysis.negative_price_timeline %}
-            negativePriceTimeline: {{ results.analysis.negative_price_timeline | tojson }},
-            {% else %}
-            negativePriceTimeline: null,
-            {% endif %}
-            currency: "{{ results.metadata.currency }}"
-        };
+        <!-- Key Metrics -->
+        <div class="terminal-prompt">HUVUDMÄTNINGAR:</div>
         
-        // Check if chart data is available
-        if (!window.analysisData.timeSeries) {
-            console.warn('Chart data not available - session may have expired. Please re-upload your file.');
-        }
-    </script>
-    
-    <!-- Simplified Chart.js Configuration -->
-    <script>
-        // Chart.js default settings
-        Chart.defaults.responsive = true;
-        Chart.defaults.maintainAspectRatio = false;
-        Chart.defaults.plugins.legend.position = 'top';
-        Chart.defaults.plugins.tooltip.mode = 'index';
-        Chart.defaults.plugins.tooltip.intersect = false;
+        {% if results and results.analysis %}
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">TOTAL PRODUKTION:</span>
+            <span class="terminal-metric-value">{{ "%.2f"|format(results.analysis.production_total) }} kWh</span>
+        </div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">GENOMSNITTSPRIS:</span>
+            <span class="terminal-metric-value">{{ "%.2f"|format(results.analysis.price_mean_eur_mwh) }} EUR/MWh</span>
+        </div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">TOTAL INTÄKT:</span>
+            <span class="terminal-metric-value">{{ "%.2f"|format(results.analysis.total_export_value_sek) }} SEK</span>
+        </div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">GENOMSNITTLIG INTÄKT:</span>
+            <span class="terminal-metric-value">{{ "%.4f"|format(results.analysis.total_export_value_sek / results.analysis.production_total) }} SEK/kWh</span>
+        </div>
 
-        // Initialize charts when DOM is loaded
-        document.addEventListener('DOMContentLoaded', function() {
-            initializeSimpleCharts();
+        <div class="terminal-divider"></div>
+
+        <!-- Negative Price Analysis -->
+        <div class="terminal-prompt">NEGATIVA PRISER ANALYS:</div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">TIMMAR MED NEGATIVA PRISER:</span>
+            <span class="terminal-metric-value">{{ results.analysis.negative_price_hours }} av {{ results.analysis.total_hours }} timmar</span>
+        </div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">ANDEL NEGATIVA PRISER:</span>
+            <span class="terminal-metric-value">{{ "%.1f"|format((results.analysis.negative_price_hours / results.analysis.total_hours) * 100) }}%</span>
+        </div>
+        
+        {% if results.analysis.negative_price_hours > 0 %}
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">FÖRLUST FRÅN NEGATIVA PRISER:</span>
+            <span class="terminal-metric-value terminal-error">{{ "%.2f"|format(results.analysis.negative_export_cost_abs_sek) }} SEK</span>
+        </div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">PRODUKTION VID NEGATIVA PRISER:</span>
+            <span class="terminal-metric-value">{{ "%.2f"|format(results.analysis.production_during_negative_prices) }} kWh</span>
+        </div>
+        {% endif %}
+
+        <div class="terminal-divider"></div>
+
+        <!-- Price Statistics -->
+        <div class="terminal-prompt">PRISSTATISTIK:</div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">HÖGSTA PRIS:</span>
+            <span class="terminal-metric-value">{{ "%.2f"|format(results.analysis.price_max_eur_mwh) }} EUR/MWh</span>
+        </div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">LÄGSTA PRIS:</span>
+            <span class="terminal-metric-value">{{ "%.2f"|format(results.analysis.price_min_eur_mwh) }} EUR/MWh</span>
+        </div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">PRISVARIATION:</span>
+            <span class="terminal-metric-value">{{ "%.4f"|format(results.analysis.price_volatility_std) }} SEK/kWh</span>
+        </div>
+
+        <div class="terminal-divider"></div>
+
+        <!-- Time Period -->
+        <div class="terminal-prompt">ANALYSPERIOD:</div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">STARTDATUM:</span>
+            <span class="terminal-metric-value">{{ results.metadata.start_date[:10] if results.metadata.start_date else 'EJ SPECIFICERAT' }}</span>
+        </div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">SLUTDATUM:</span>
+            <span class="terminal-metric-value">{{ results.metadata.end_date[:10] if results.metadata.end_date else 'EJ SPECIFICERAT' }}</span>
+        </div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">ELOMRÅDE:</span>
+            <span class="terminal-metric-value">{{ results.metadata.area_code | upper }}</span>
+        </div>
+        
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">VALUTA:</span>
+            <span class="terminal-metric-value">{{ results.metadata.currency }}</span>
+        </div>
+
+        <div class="terminal-divider"></div>
+
+        {% endif %}
+
+        <!-- Warning if significant negative prices -->
+        {% if results and results.analysis and results.analysis.negative_price_hours > 0 and (results.analysis.negative_price_hours / results.analysis.total_hours) > 0.05 %}
+        <div class="terminal-error" style="padding: 15px; margin: 20px 0;">
+            ⚠️  VARNING: BETYDANDE NEGATIVA PRISER UPPTÄCKTA ⚠️<br><br>
+            Din anläggning producerade under {{ "%.1f"|format((results.analysis.negative_price_hours / results.analysis.total_hours) * 100) }}% av tiden när elpriserna var negativa.<br>
+            Detta resulterade i en förlust på {{ "%.2f"|format(results.analysis.negative_export_cost_abs_sek) }} SEK.<br><br>
+            REKOMMENDATION: Överväg batterilager eller produktionsstyrning.
+        </div>
+        {% endif %}
+
+        <div class="terminal-divider"></div>
+
+        <!-- Sourceful Energy Pitch -->
+        <div class="terminal-prompt">SOURCEFUL ENERGY ZAP™ - OPTIMERA DINA INTÄKTER:</div>
+        
+        <div class="terminal-text" style="background: rgba(255, 170, 0, 0.1); padding: 15px; margin: 10px 0; border-left: 3px solid #ffaa00;">
+            <strong style="color: #ffaa00;">SOURCEFUL ENERGY ZAP™</strong> kan hjälpa dig maximera dina intäkter genom:<br><br>
+            
+            🔋 <strong>INTELLIGENT BATTERILAGER</strong> - Lagra energi när priserna är negativa eller låga<br>
+            📊 <strong>PREDIKTIV ANALYS</strong> - Förutse prisfall och optimera produktion<br>
+            ⚡ <strong>AUTOMATISK STYRNING</strong> - Släng av produktionen när det kostar pengar<br>
+            💰 <strong>INTÄKTSOPTIMERING</strong> - Sälj din lagrade energi när priserna är höga<br><br>
+            
+            {% if results and results.analysis and results.analysis.negative_export_cost_abs_sek and results.analysis.negative_export_cost_abs_sek > 100 %}
+            <span style="color: #00ff00;">POTENTIELL BESPARING: {{ "%.0f"|format(results.analysis.negative_export_cost_abs_sek) }} SEK/år med ZAP™</span><br>
+            {% endif %}
+            
+            <span style="color: #666666;">Kontakta oss för en kostnadsfri konsultation: info@sourceful.energy</span>
+        </div>
+
+        <div class="terminal-divider"></div>
+
+        <!-- Actions -->
+        <div class="terminal-prompt">KOMMANDOALTERNATIV:</div>
+        <div style="margin: 20px 0;">
+            <a href="/" class="terminal-button" style="display: inline-block; text-decoration: none; margin-right: 20px;">
+                NY ANALYS
+            </a>
+            <a href="/status" class="terminal-button" style="display: inline-block; text-decoration: none; margin-right: 20px;">
+                SYSTEMSTATUS
+            </a>
+            <a href="#" onclick="window.print()" class="terminal-button" style="display: inline-block; text-decoration: none;">
+                SKRIV UT RAPPORT
+            </a>
+        </div>
+
+        <!-- Data Download Option -->
+        {% if results and results.metadata and results.metadata.session_id %}
+        <div style="margin: 20px 0;">
+            <a href="/download/{{ results.metadata.session_id }}" class="terminal-button" style="display: inline-block; text-decoration: none;">
+                LADDA NER RAW DATA (CSV)
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- Terminal Footer -->
+        <div class="terminal-command-line terminal-text" style="text-align: center; color: #666666; margin-top: 40px;">
+            ANALYS SLUTFÖRD - SOURCEFUL ENERGY ZAP REDO FÖR NÄSTA UPPDRAG
+        </div>
+
+        <div class="terminal-text" style="text-align: center; margin-top: 20px;">
+            <span class="cursor"></span>
+        </div>
+    </div>
+
+    <!-- Terminal JavaScript -->
+    <script>
+        // Terminal typing effect for cursor
+        const cursor = document.querySelector('.cursor');
+        if (cursor) {
+            setInterval(() => {
+                cursor.style.opacity = cursor.style.opacity === '0' ? '1' : '0';
+            }, 500);
+        }
+
+        // Terminal sound effect (optional)
+        function playTerminalSound() {
+            // Could add a retro beep sound here
+        }
+
+        // Print function formatting
+        window.addEventListener('beforeprint', function() {
+            document.body.style.background = '#000';
+            document.body.style.color = '#00ff00';
         });
 
-        function initializeSimpleCharts() {
-            // Only initialize the charts we actually have
-            {% if results.analysis.negative_price_hours > 0 %}
-            initNegativePriceChart();
-            {% endif %}
-            
-            initTimeDistributionChart();
-            initProductionValueChart();
-        }
-
-        {% if results.analysis.negative_price_hours > 0 %}
-        function initNegativePriceChart() {
-            const ctx = document.getElementById('negativePriceChart').getContext('2d');
-            
-            // Check if negative price data is available
-            if (!window.analysisData.negativePriceTimeline) {
-                ctx.font = '16px Arial';
-                ctx.fillStyle = '#666';
-                ctx.textAlign = 'center';
-                ctx.fillText('Negative price data not available', ctx.canvas.width/2, ctx.canvas.height/2);
-                return;
-            }
-            
-            const negData = window.analysisData.negativePriceTimeline;
-            
-            new Chart(ctx, {
-                type: 'scatter',
-                data: {
-                    datasets: [{
-                        label: 'Negative Price Periods',
-                        data: negData.timestamps.map((ts, i) => ({
-                            x: new Date(ts),
-                            y: negData.prices_eur_mwh[i]
-                        })),
-                        backgroundColor: 'rgba(220, 53, 69, 0.6)',
-                        borderColor: 'rgb(220, 53, 69)',
-                        pointRadius: negData.production_kwh.map(prod => Math.max(4, Math.min(20, prod * 2))),
-                        pointHoverRadius: 10
-                    }]
-                },
-                options: {
-                    scales: {
-                        x: {
-                            type: 'time',
-                            time: {
-                                displayFormats: {
-                                    hour: 'MMM dd HH:mm',
-                                    day: 'MMM dd'
-                                }
-                            },
-                            title: {
-                                display: true,
-                                text: 'Date and Time'
-                            }
-                        },
-                        y: {
-                            title: {
-                                display: true,
-                                text: 'Price (EUR/MWh)'
-                            }
-                        }
-                    },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Negative Price Periods (bubble size = production amount)'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const index = context.dataIndex;
-                                    const production = negData.production_kwh[index];
-                                    const cost = Math.abs(negData.cost_sek[index]);
-                                    const price_kwh = (context.parsed.y * window.analysisData.metadata.currency_rate) / 1000;
-                                    return [
-                                        `Date: ${new Date(negData.timestamps[index]).toLocaleString()}`,
-                                        `Price: ${price_kwh.toFixed(4)} ${window.analysisData.currency}/kWh`,
-                                        `Your production: ${production.toFixed(2)} kWh`,
-                                        `Cost to you: ${(cost * (window.analysisData.metadata.currency_rate / 11.5)).toFixed(2)} ${window.analysisData.currency}`
-                                    ];
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-        {% endif %}
-
-        function initTimeDistributionChart() {
-            const ctx = document.getElementById('timeDistributionChart').getContext('2d');
-            const analysis = window.analysisData.analysis;
-            
-            new Chart(ctx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Hours with Production', 'Negative Price Hours', 'Other Hours'],
-                    datasets: [{
-                        data: [
-                            analysis.hours_with_production,
-                            analysis.negative_price_hours || 0,
-                            analysis.total_hours - analysis.hours_with_production
-                        ],
-                        backgroundColor: [
-                            'rgba(25, 135, 84, 0.8)',
-                            'rgba(220, 53, 69, 0.8)',
-                            'rgba(108, 117, 125, 0.8)'
-                        ],
-                        borderColor: [
-                            'rgb(25, 135, 84)',
-                            'rgb(220, 53, 69)',
-                            'rgb(108, 117, 125)'
-                        ],
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Time Distribution Over Analysis Period'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
-                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
-                                    return `${context.label}: ${context.parsed} hours (${percentage}%)`;
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
-
-        function initProductionValueChart() {
-            const ctx = document.getElementById('productionValueChart').getContext('2d');
-            const analysis = window.analysisData.analysis;
-            const metadata = window.analysisData.metadata;
-            
-            // Convert values to display currency
-            const totalValue = analysis.total_export_value_sek * (metadata.currency_rate / 11.5);
-            const positiveValue = analysis.positive_export_value_sek * (metadata.currency_rate / 11.5);
-            const negativeValue = analysis.negative_export_cost_abs_sek * (metadata.currency_rate / 11.5);
-            
-            new Chart(ctx, {
-                type: 'bar',
-                data: {
-                    labels: ['Total Production', 'Export Value', 'Negative Cost'],
-                    datasets: [{
-                        label: 'kWh',
-                        data: [analysis.production_total, 0, 0],
-                        backgroundColor: 'rgba(25, 135, 84, 0.8)',
-                        borderColor: 'rgb(25, 135, 84)',
-                        borderWidth: 2,
-                        yAxisID: 'y'
-                    }, {
-                        label: `Value (${metadata.currency})`,
-                        data: [0, positiveValue, -negativeValue],
-                        backgroundColor: ['rgba(13, 110, 253, 0.8)', 'rgba(13, 110, 253, 0.8)', 'rgba(220, 53, 69, 0.8)'],
-                        borderColor: ['rgb(13, 110, 253)', 'rgb(13, 110, 253)', 'rgb(220, 53, 69)'],
-                        borderWidth: 2,
-                        yAxisID: 'y1'
-                    }]
-                },
-                options: {
-                    scales: {
-                        y: {
-                            type: 'linear',
-                            display: true,
-                            position: 'left',
-                            title: {
-                                display: true,
-                                text: 'Production (kWh)'
-                            },
-                            beginAtZero: true
-                        },
-                        y1: {
-                            type: 'linear',
-                            display: true,
-                            position: 'right',
-                            title: {
-                                display: true,
-                                text: `Value (${metadata.currency})`
-                            },
-                            grid: {
-                                drawOnChartArea: false,
-                            }
-                        }
-                    },
-                    plugins: {
-                        title: {
-                            display: true,
-                            text: 'Production vs Financial Value Summary'
-                        },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    if (context.datasetIndex === 0) {
-                                        return `Production: ${context.parsed.y.toFixed(1)} kWh`;
-                                    } else {
-                                        const value = Math.abs(context.parsed.y);
-                                        const sign = context.parsed.y < 0 ? '-' : '';
-                                        return `${context.dataset.label}: ${sign}${value.toFixed(2)} ${metadata.currency}`;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            });
-        }
+        // Auto-scroll to top on load
+        window.addEventListener('load', function() {
+            window.scrollTo(0, 0);
+        });
     </script>
-    
-    <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 </html>

@@ -1,286 +1,257 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="sv">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sourceful Energy - Accelerating Energy Optimization</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    <title>SOURCEFUL ENERGY TERMINAL v1.0</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
 </head>
 <body>
-    <!-- Header Navigation -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-white shadow-sm">
-        <div class="container">
-            <a class="navbar-brand d-flex align-items-center" href="/">
-                <img src="https://docs.sourceful.energy/assets/files/Sourceful-Logo-Wide-Teal-eb6845162483f6d470562338a87f7dc0.png" 
-                     alt="Sourceful Energy" class="logo-header me-3">
-                <div>
-                    <span class="fw-bold text-primary fs-4">Sourceful Energy</span>
-                    <div class="small text-muted">Democratizing Smart Energy Flows</div>
-                </div>
-            </a>
-            <span class="badge bg-success ms-auto">POC</span>
+    <div class="terminal-container">
+        <!-- Terminal Header -->
+        <div class="terminal-system-info">
+            SOURCEFUL ENERGY ANALYSIS SYSTEM v1.0<br>
+            COPYRIGHT (C) 2025 - ENERGI OPTIMERING AB<br>
+            READY.
         </div>
-    </nav>
 
-    <!-- Hero Section -->
-    <section class="hero-section">
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-lg-8 text-center">
-                    <h1 class="display-4 fw-bold text-primary mb-4">{{ message }}</h1>
-                    <p class="lead text-muted mb-5">
-                        Upload your solar production data to analyze against real-time electricity prices. 
-                        Discover when negative prices impact your energy exports and get actionable insights to optimize your energy strategy.
-                    </p>
+        <!-- ASCII Art Logo -->
+        <div class="terminal-logo terminal-flicker">
+███████╗ ██████╗ ██╗   ██╗██████╗  ██████╗███████╗███████╗██╗   ██╗██╗     
+██╔════╝██╔═══██╗██║   ██║██╔══██╗██╔════╝██╔════╝██╔════╝██║   ██║██║     
+███████╗██║   ██║██║   ██║██████╔╝██║     █████╗  █████╗  ██║   ██║██║     
+╚════██║██║   ██║██║   ██║██╔══██╗██║     ██╔══╝  ██╔══╝  ██║   ██║██║     
+███████║╚██████╔╝╚██████╔╝██║  ██║╚██████╗███████╗██║     ╚██████╔╝███████╗
+╚══════╝ ╚═════╝  ╚═════╝ ╚═╝  ╚═╝ ╚═════╝╚══════╝╚═╝      ╚═════╝ ╚══════╝
+                           ENERGY TERMINAL
+        </div>
+
+        <div class="terminal-divider"></div>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="terminal-{{ 'error' if category == 'error' else 'success' if category == 'success' else 'info' }}">
+                        {{ category.upper() }}: {{ message }}
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <!-- Main Terminal Interface -->
+        <div class="terminal-prompt terminal-text">
+            SYSTEM REDO FÖR ANALYS AV ELPRODUKTION OCH PRISER
+        </div>
+
+        <div class="terminal-command-line terminal-text">
+            LADDA UPP DIN PRODUKTIONSFIL FÖR ANALYS...
+        </div>
+
+        <!-- Upload Form -->
+        <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data" class="terminal-form">
+            
+            <!-- File Upload -->
+            <label class="terminal-label">PRODUKTIONSFIL (CSV):</label>
+            <div class="terminal-file-area" id="uploadArea">
+                <input type="file" id="file" name="file" accept=".csv" required style="display: none;">
+                <div class="upload-content">
+                    DRA OCH SLÄPP DIN CSV-FIL HÄR<br>
+                    ELLER <span style="color: #ffaa00; cursor: pointer;" onclick="document.getElementById('file').click()">KLICKA FÖR ATT VÄLJA FIL</span><br>
+                    <small style="color: #666666;">MAX FILSTORLEK: 16MB</small>
+                </div>
+                <div class="file-info" style="display: none;">
+                    FIL LADDAD: <span id="fileName" style="color: #ffaa00;"></span><br>
+                    STORLEK: <span id="fileSize" style="color: #666666;"></span>
                 </div>
             </div>
-        </div>
-    </section>
 
-    <!-- Feature Cards Section -->
-    <section class="features-section py-5">
-        <div class="container">
-            <div class="row g-4">
-                <div class="col-md-4">
-                    <div class="card feature-card h-100 border-0 shadow-sm">
-                        <div class="card-body text-center p-4">
-                            <div class="feature-icon bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-4">
-                                <i class="bi bi-graph-up fs-3"></i>
-                            </div>
-                            <h5 class="card-title fw-bold mb-3">Smart Analysis</h5>
-                            <p class="card-text text-muted">Upload your CSV files and get instant AI-powered format detection with comprehensive price analysis</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card feature-card h-100 border-0 shadow-sm">
-                        <div class="card-body text-center p-4">
-                            <div class="feature-icon bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-4">
-                                <i class="bi bi-lightning-charge fs-3"></i>
-                            </div>
-                            <h5 class="card-title fw-bold mb-3">Negative Price Detection</h5>
-                            <p class="card-text text-muted">Get detailed reports on when electricity prices go negative and their financial impact on your exports</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-4">
-                    <div class="card feature-card h-100 border-0 shadow-sm">
-                        <div class="card-body text-center p-4">
-                            <div class="feature-icon bg-info text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-4">
-                                <i class="bi bi-currency-exchange fs-3"></i>
-                            </div>
-                            <h5 class="card-title fw-bold mb-3">Multi-Currency Support</h5>
-                            <p class="card-text text-muted">View your analysis results in EUR, SEK, USD, NOK, DKK, or GBP with real-time exchange rates</p>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
+            <!-- Area Selection -->
+            <label class="terminal-label">ELOMRÅDE:</label>
+            <select class="terminal-select" id="area" name="area" required>
+                <option value="">VÄLJ ELOMRÅDE...</option>
+                <optgroup label="SVERIGE">
+                    <option value="SE_1">SE_1 - NORRA SVERIGE</option>
+                    <option value="SE_2">SE_2 - MELLERSTA SVERIGE</option>
+                    <option value="SE_3">SE_3 - SÖDRA SVERIGE</option>
+                    <option value="SE_4" selected>SE_4 - SYDSVERIGE</option>
+                </optgroup>
+                <optgroup label="NORGE">
+                    <option value="NO_1">NO_1 - ÖSTRA NORGE</option>
+                    <option value="NO_2">NO_2 - SÖDRA NORGE</option>
+                    <option value="NO_3">NO_3 - MELLERSTA NORGE</option>
+                    <option value="NO_4">NO_4 - NORRA NORGE</option>
+                    <option value="NO_5">NO_5 - VÄSTRA NORGE</option>
+                </optgroup>
+                <optgroup label="DANMARK">
+                    <option value="DK_1">DK_1 - VÄSTRA DANMARK</option>
+                    <option value="DK_2">DK_2 - ÖSTRA DANMARK</option>
+                </optgroup>
+                <optgroup label="FINLAND">
+                    <option value="FI">FI - FINLAND</option>
+                </optgroup>
+            </select>
 
-    <!-- Upload Section -->
-    <section class="upload-section py-5 bg-light">
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-lg-10">
-                    <div class="upload-form bg-white rounded-4 shadow-sm p-5">
-                        <div class="text-center mb-5">
-                            <div class="upload-icon mb-4">
-                                <i class="bi bi-cloud-upload text-primary display-1"></i>
-                            </div>
-                            <h3 class="fw-bold mb-3">Upload Your Production Data</h3>
-                            <p class="text-muted mb-0">
-                                Analyze your solar production against electricity market prices and get actionable insights.
-                            </p>
-                        </div>
+            <!-- Currency Selection -->
+            <label class="terminal-label">VALUTA:</label>
+            <select class="terminal-select" id="currency" name="currency">
+                <option value="SEK" selected>SEK - SVENSKA KRONOR</option>
+                <option value="EUR">EUR - EURO</option>
+                <option value="USD">USD - US DOLLAR</option>
+                <option value="NOK">NOK - NORSKA KRONOR</option>
+                <option value="DKK">DKK - DANSKA KRONOR</option>
+                <option value="GBP">GBP - BRITTISKA PUND</option>
+            </select>
 
-                        <!-- Upload Form -->
-                        <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data" novalidate>
-                            <div class="row g-4">
-                                <!-- File Upload -->
-                                <div class="col-12">
-                                    <label for="file" class="form-label fw-bold">
-                                        <i class="bi bi-file-earmark-spreadsheet text-success me-2"></i>
-                                        Production Data (CSV)
-                                    </label>
-                                    <div class="upload-area border-2 border-dashed rounded-3 p-4 text-center" id="uploadArea">
-                                        <input type="file" class="form-control d-none" id="file" name="file" accept=".csv" required>
-                                        <div class="upload-content">
-                                            <i class="bi bi-file-earmark-arrow-up text-muted fs-1 mb-3"></i>
-                                            <p class="mb-2">Drag & drop your CSV file here or <button type="button" class="btn btn-link p-0" onclick="document.getElementById('file').click()">browse</button></p>
-                                            <small class="text-muted">Maximum file size: 16MB</small>
-                                        </div>
-                                        <div class="file-info d-none">
-                                            <i class="bi bi-check-circle text-success fs-3 mb-2"></i>
-                                            <p class="mb-0 fw-bold" id="fileName"></p>
-                                            <small class="text-muted" id="fileSize"></small>
-                                        </div>
-                                    </div>
-                                    <div class="invalid-feedback">Please select a CSV file.</div>
-                                </div>
+            <!-- Date Range -->
+            <label class="terminal-label">STARTDATUM (VALFRITT):</label>
+            <input type="date" class="terminal-input" id="start_date" name="start_date" placeholder="YYYY-MM-DD">
 
-                                <!-- Area Selection -->
-                                <div class="col-md-6">
-                                    <label for="area" class="form-label fw-bold">
-                                        <i class="bi bi-geo-alt text-primary me-2"></i>
-                                        Electricity Area
-                                    </label>
-                                    <select class="form-select" id="area" name="area" required>
-                                        <option value="">Select electricity area...</option>
-                                        <optgroup label="Sweden">
-                                            <option value="SE_1">SE_1 - Northern Sweden</option>
-                                            <option value="SE_2">SE_2 - Central Sweden</option>
-                                            <option value="SE_3">SE_3 - Southern Sweden</option>
-                                            <option value="SE_4" selected>SE_4 - Southernmost Sweden</option>
-                                        </optgroup>
-                                        <optgroup label="Norway">
-                                            <option value="NO_1">NO_1 - Eastern Norway</option>
-                                            <option value="NO_2">NO_2 - Southern Norway</option>
-                                            <option value="NO_3">NO_3 - Central Norway</option>
-                                            <option value="NO_4">NO_4 - Northern Norway</option>
-                                            <option value="NO_5">NO_5 - Western Norway</option>
-                                        </optgroup>
-                                        <optgroup label="Denmark">
-                                            <option value="DK_1">DK_1 - Western Denmark</option>
-                                            <option value="DK_2">DK_2 - Eastern Denmark</option>
-                                        </optgroup>
-                                        <optgroup label="Finland">
-                                            <option value="FI">FI - Finland</option>
-                                        </optgroup>
-                                    </select>
-                                    <div class="invalid-feedback">Please select an electricity area.</div>
-                                </div>
+            <label class="terminal-label">SLUTDATUM (VALFRITT):</label>
+            <input type="date" class="terminal-input" id="end_date" name="end_date" placeholder="YYYY-MM-DD">
 
-                                <!-- Currency Selection -->
-                                <div class="col-md-6">
-                                    <label for="currency" class="form-label fw-bold">
-                                        <i class="bi bi-currency-exchange text-info me-2"></i>
-                                        Currency
-                                    </label>
-                                    <select class="form-select" id="currency" name="currency">
-                                        <option value="SEK" selected>SEK - Swedish Krona</option>
-                                        <option value="EUR">EUR - Euro</option>
-                                        <option value="USD">USD - US Dollar</option>
-                                        <option value="NOK">NOK - Norwegian Krone</option>
-                                        <option value="DKK">DKK - Danish Krone</option>
-                                        <option value="GBP">GBP - British Pound</option>
-                                    </select>
-                                </div>
+            <!-- Submit Button -->
+            <button type="submit" class="terminal-button" id="submitBtn">
+                ANALYSERA [ENTER]
+            </button>
 
-                                <!-- Date Range (Optional) -->
-                                <div class="col-md-6">
-                                    <label for="start_date" class="form-label fw-bold">
-                                        <i class="bi bi-calendar-range text-secondary me-2"></i>
-                                        Start Date <small class="text-muted">(optional)</small>
-                                    </label>
-                                    <input type="date" class="form-control" id="start_date" name="start_date">
-                                    <div class="form-text">Leave empty to analyze all data</div>
-                                </div>
-
-                                <div class="col-md-6">
-                                    <label for="end_date" class="form-label fw-bold">
-                                        <i class="bi bi-calendar-range text-secondary me-2"></i>
-                                        End Date <small class="text-muted">(optional)</small>
-                                    </label>
-                                    <input type="date" class="form-control" id="end_date" name="end_date">
-                                    <div class="form-text">Leave empty to analyze all data</div>
-                                </div>
-
-                                <!-- Submit Button -->
-                                <div class="col-12 text-center">
-                                    <button type="submit" class="btn btn-primary btn-lg" id="submitBtn">
-                                        <i class="bi bi-upload me-2"></i>
-                                        Upload & Analyze
-                                    </button>
-                                    <div class="progress mt-3 d-none" id="uploadProgress">
-                                        <div class="progress-bar" role="progressbar" style="width: 0%"></div>
-                                    </div>
-                                </div>
-                            </div>
-                        </form>
-                    </div>
+            <!-- Progress Bar -->
+            <div class="terminal-progress" id="uploadProgress" style="display: none;">
+                <div class="terminal-text">LADDAR UPP OCH ANALYSERAR<span class="terminal-loading"></span></div>
+                <div class="terminal-progress-bar">
+                    <div class="terminal-progress-fill" id="progressFill"></div>
                 </div>
             </div>
-        </div>
-    </section>
+        </form>
 
-    <!-- Footer -->
-    <footer class="footer bg-dark text-light py-5">
-        <div class="container">
-            <div class="row">
-                <div class="col-md-6">
-                    <div class="d-flex align-items-center mb-3">
-                        <img src="https://docs.sourceful.energy/assets/files/Sourceful-Logo-Wide-Light-3469afb6868bc31c6223997a8af6f64c.png" 
-                             alt="Sourceful Energy" class="logo-footer me-3">
-                    </div>
-                    <p class="text-light-50 mb-3">
-                        Accelerating the energy transition through smart data analytics and democratizing access to energy optimization tools.
-                    </p>
-                    <div class="api-status-footer">
-                        <div class="d-flex flex-wrap gap-3">
-                            <div class="status-item">
-                                <span class="status-indicator bg-success"></span>
-                                <a href="/status" class="text-light text-decoration-none">
-                                    <i class="bi bi-activity me-1"></i>System Status
-                                </a>
-                            </div>
-                            <div class="status-item">
-                                <a href="/upload" class="text-light text-decoration-none">
-                                    <i class="bi bi-cloud-upload me-1"></i>Upload Data
-                                </a>
-                            </div>
-                            <div class="status-item">
-                                <a href="https://docs.sourceful.energy" target="_blank" class="text-light text-decoration-none">
-                                    <i class="bi bi-book me-1"></i>Documentation
-                                </a>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="row">
-                        <div class="col-sm-6">
-                            <h6 class="fw-bold mb-3">Platform</h6>
-                            <ul class="list-unstyled">
-                                <li><a href="/status" class="text-light-50 text-decoration-none">System Status</a></li>
-                                <li><a href="/upload" class="text-light-50 text-decoration-none">Upload Data</a></li>
-                                <li><span class="text-light-50">Multi-Currency Support</span></li>
-                            </ul>
-                        </div>
-                        <div class="col-sm-6">
-                            <h6 class="fw-bold mb-3">Resources</h6>
-                            <ul class="list-unstyled">
-                                <li><a href="https://docs.sourceful.energy" target="_blank" class="text-light-50 text-decoration-none">Documentation</a></li>
-                                <li><a href="https://sourceful.energy" target="_blank" class="text-light-50 text-decoration-none">About Sourceful</a></li>
-                                <li><span class="text-light-50">Built with Flask & Bootstrap</span></li>
-                            </ul>
-                        </div>
-                    </div>
-                    <div class="mt-4">
-                        <small class="text-light-50">
-                            © 2025 Sourceful Energy - Proof of Concept Platform
-                        </small>
-                    </div>
-                </div>
-            </div>
+        <!-- Terminal Footer -->
+        <div class="terminal-divider"></div>
+        
+        <div class="terminal-command-line terminal-text" style="text-align: center; color: #666666;">
+            SOURCEFUL ENERGY ZAP - DIN ENERGIOPTIMERING BÖRJAR HÄR
         </div>
-    </footer>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    
-    <!-- Custom JS -->
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    
-    <!-- Global functions -->
+        <div class="terminal-text" style="text-align: center; margin-top: 20px;">
+            <span class="cursor"></span>
+        </div>
+    </div>
+
+    <!-- Terminal JavaScript -->
     <script>
-        function showComingSoon() {
-            if (window.sourcefulEnergy) {
-                window.sourcefulEnergy.showComingSoonMessage();
+        // File upload handling
+        const fileInput = document.getElementById('file');
+        const uploadArea = document.getElementById('uploadArea');
+        const fileName = document.getElementById('fileName');
+        const fileSize = document.getElementById('fileSize');
+        const uploadContent = uploadArea.querySelector('.upload-content');
+        const fileInfo = uploadArea.querySelector('.file-info');
+        const form = document.getElementById('uploadForm');
+        const submitBtn = document.getElementById('submitBtn');
+        const progressArea = document.getElementById('uploadProgress');
+        const progressFill = document.getElementById('progressFill');
+
+        // Drag and drop functionality
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('drag-over');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('drag-over');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('drag-over');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                const file = files[0];
+                if (file.name.toLowerCase().endsWith('.csv')) {
+                    fileInput.files = files;
+                    handleFileSelect(file);
+                } else {
+                    alert('FEL: ENDAST CSV-FILER TILLÅTNA');
+                }
             }
+        });
+
+        // File input change
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFileSelect(e.target.files[0]);
+            }
+        });
+
+        function handleFileSelect(file) {
+            fileName.textContent = file.name;
+            fileSize.textContent = formatFileSize(file.size);
+            uploadContent.style.display = 'none';
+            fileInfo.style.display = 'block';
         }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 BYTES';
+            const k = 1024;
+            const sizes = ['BYTES', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        // Form submission with progress
+        form.addEventListener('submit', (e) => {
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'ANALYSERAR...';
+            progressArea.style.display = 'block';
+            
+            // Simulate progress
+            let progress = 0;
+            const progressInterval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress >= 90) progress = 90;
+                progressFill.style.width = progress + '%';
+            }, 200);
+
+            // Clear interval when form actually submits
+            setTimeout(() => {
+                clearInterval(progressInterval);
+                progressFill.style.width = '100%';
+            }, 3000);
+        });
+
+        // Terminal typing effect for cursor
+        const cursor = document.querySelector('.cursor');
+        setInterval(() => {
+            cursor.style.opacity = cursor.style.opacity === '0' ? '1' : '0';
+        }, 500);
+
+        // Add some retro sound effects (optional)
+        function playBeep() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+            
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+            
+            oscillator.frequency.value = 800;
+            oscillator.type = 'square';
+            
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.1);
+        }
+
+        // Play beep on button hover (optional)
+        submitBtn.addEventListener('mouseenter', () => {
+            try {
+                // playBeep(); // Uncomment for retro sound effects
+            } catch (e) {
+                // Ignore audio errors
+            }
+        });
     </script>
 </body>
 </html>

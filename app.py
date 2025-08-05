@@ -1613,6 +1613,10 @@ def results_page():
                     'metadata': cached_data['metadata'],
                     'ai_explanation': cached_data.get('ai_explanation', 'AI explanation not available for this analysis.')
                 }
+                
+                # Add session_id to metadata for download links
+                results['metadata']['session_id'] = session_id
+                
                 logger.info(f"Loaded full analysis from cache for session {session_id}")
             else:
                 # Cache file not found

@@ -1,0 +1,493 @@
+/* Retro Terminal CSS - C64/VT323 Style */
+
+/* Import VT323 font from Google Fonts */
+@import url('https://fonts.googleapis.com/css2?family=VT323:wght@400&display=swap');
+
+/* Root variables for terminal theme */
+:root {
+    --terminal-bg: #000000;
+    --terminal-green: #00ff00;
+    --terminal-green-dim: #00aa00;
+    --terminal-amber: #ffaa00;
+    --terminal-red: #ff4444;
+    --terminal-white: #ffffff;
+    --terminal-gray: #666666;
+    --terminal-glow: 0 0 10px currentColor;
+    --terminal-scan-line: rgba(0, 255, 0, 0.03);
+}
+
+/* Reset all modern styling */
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+/* Terminal body styling */
+body {
+    background-color: var(--terminal-bg);
+    color: var(--terminal-green);
+    font-family: 'VT323', 'Courier New', monospace;
+    font-size: 18px;
+    line-height: 1.4;
+    min-height: 100vh;
+    overflow-x: auto;
+    position: relative;
+}
+
+/* CRT screen effect */
+body::before {
+    content: '';
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: 
+        repeating-linear-gradient(
+            0deg,
+            transparent,
+            transparent 2px,
+            var(--terminal-scan-line) 2px,
+            var(--terminal-scan-line) 4px
+        );
+    pointer-events: none;
+    z-index: 1000;
+}
+
+/* Terminal container */
+.terminal-container {
+    max-width: 80ch;
+    margin: 0 auto;
+    padding: 20px;
+    position: relative;
+    z-index: 1;
+}
+
+/* Text glow effect */
+.terminal-text {
+    text-shadow: var(--terminal-glow);
+    animation: textGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes textGlow {
+    from { text-shadow: 0 0 5px currentColor; }
+    to { text-shadow: 0 0 10px currentColor, 0 0 15px currentColor; }
+}
+
+/* Terminal prompt styling */
+.terminal-prompt {
+    color: var(--terminal-green);
+    margin: 20px 0 10px 0;
+    font-weight: normal;
+}
+
+.terminal-prompt::before {
+    content: '> ';
+    color: var(--terminal-amber);
+}
+
+/* Blinking cursor */
+.cursor {
+    display: inline-block;
+    background-color: var(--terminal-green);
+    animation: blink 1s infinite;
+    width: 0.8em;
+    height: 1em;
+    margin-left: 2px;
+}
+
+@keyframes blink {
+    0%, 50% { opacity: 1; }
+    51%, 100% { opacity: 0; }
+}
+
+/* Terminal form elements */
+.terminal-form {
+    margin: 20px 0;
+}
+
+.terminal-label {
+    display: block;
+    color: var(--terminal-green);
+    margin: 15px 0 5px 0;
+    text-transform: uppercase;
+}
+
+.terminal-input,
+.terminal-select {
+    background: var(--terminal-bg);
+    border: 1px solid var(--terminal-green);
+    color: var(--terminal-green);
+    font-family: 'VT323', 'Courier New', monospace;
+    font-size: 16px;
+    padding: 8px;
+    width: 100%;
+    max-width: 400px;
+    border-radius: 0;
+    outline: none;
+    text-shadow: var(--terminal-glow);
+}
+
+.terminal-input:focus,
+.terminal-select:focus {
+    box-shadow: 0 0 10px var(--terminal-green);
+    border-color: var(--terminal-amber);
+}
+
+.terminal-input::placeholder {
+    color: var(--terminal-gray);
+    opacity: 0.7;
+}
+
+/* File input styling */
+.terminal-file-area {
+    border: 2px dashed var(--terminal-green);
+    padding: 20px;
+    margin: 10px 0;
+    text-align: center;
+    background: rgba(0, 255, 0, 0.05);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.terminal-file-area:hover {
+    border-color: var(--terminal-amber);
+    background: rgba(255, 170, 0, 0.05);
+    box-shadow: 0 0 20px rgba(255, 170, 0, 0.3);
+}
+
+.terminal-file-area.drag-over {
+    border-color: var(--terminal-amber);
+    background: rgba(255, 170, 0, 0.1);
+    animation: pulse 1s infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+}
+
+/* Submit button */
+.terminal-button {
+    background: var(--terminal-bg);
+    border: 2px solid var(--terminal-green);
+    color: var(--terminal-green);
+    font-family: 'VT323', 'Courier New', monospace;
+    font-size: 18px;
+    padding: 12px 24px;
+    margin: 20px 0;
+    cursor: pointer;
+    text-transform: uppercase;
+    transition: all 0.3s ease;
+    text-shadow: var(--terminal-glow);
+    position: relative;
+}
+
+.terminal-button::before {
+    content: '[';
+    margin-right: 5px;
+}
+
+.terminal-button::after {
+    content: ']';
+    margin-left: 5px;
+}
+
+.terminal-button:hover {
+    background: var(--terminal-green);
+    color: var(--terminal-bg);
+    box-shadow: 0 0 20px var(--terminal-green);
+    text-shadow: none;
+}
+
+.terminal-button:active {
+    transform: scale(0.98);
+}
+
+/* Status messages */
+.terminal-success {
+    color: var(--terminal-green);
+    margin: 15px 0;
+    padding: 10px;
+    border: 1px solid var(--terminal-green);
+    background: rgba(0, 255, 0, 0.1);
+}
+
+.terminal-error {
+    color: var(--terminal-red);
+    margin: 15px 0;
+    padding: 10px;
+    border: 1px solid var(--terminal-red);
+    background: rgba(255, 68, 68, 0.1);
+}
+
+.terminal-info {
+    color: var(--terminal-amber);
+    margin: 15px 0;
+    padding: 10px;
+    border: 1px solid var(--terminal-amber);
+    background: rgba(255, 170, 0, 0.1);
+}
+
+/* Progress indicator */
+.terminal-progress {
+    margin: 20px 0;
+    padding: 10px;
+    border: 1px solid var(--terminal-green);
+    background: rgba(0, 255, 0, 0.05);
+}
+
+.terminal-progress-bar {
+    background: var(--terminal-bg);
+    border: 1px solid var(--terminal-green);
+    height: 20px;
+    position: relative;
+    overflow: hidden;
+}
+
+.terminal-progress-fill {
+    background: var(--terminal-green);
+    height: 100%;
+    width: 0%;
+    transition: width 0.3s ease;
+    animation: progressGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes progressGlow {
+    from { box-shadow: 0 0 5px var(--terminal-green); }
+    to { box-shadow: 0 0 15px var(--terminal-green); }
+}
+
+/* Results display */
+.terminal-results {
+    margin: 30px 0;
+    padding: 20px;
+    border: 1px solid var(--terminal-green);
+    background: rgba(0, 255, 0, 0.05);
+}
+
+.terminal-results-header {
+    color: var(--terminal-amber);
+    font-size: 24px;
+    margin-bottom: 20px;
+    text-align: center;
+    text-shadow: 0 0 10px currentColor;
+}
+
+.terminal-metric {
+    margin: 10px 0;
+    padding: 5px 0;
+    border-bottom: 1px dotted var(--terminal-gray);
+}
+
+.terminal-metric:last-child {
+    border-bottom: none;
+}
+
+.terminal-metric-label {
+    color: var(--terminal-green);
+    display: inline-block;
+    width: 250px;
+}
+
+.terminal-metric-value {
+    color: var(--terminal-amber);
+    font-weight: bold;
+    text-shadow: 0 0 5px currentColor;
+}
+
+.terminal-negative {
+    color: var(--terminal-red);
+    animation: warning 2s ease-in-out infinite;
+}
+
+@keyframes warning {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+}
+
+/* ASCII art and decorations */
+.terminal-ascii {
+    color: var(--terminal-green-dim);
+    font-size: 14px;
+    line-height: 1;
+    margin: 20px 0;
+    text-align: center;
+    white-space: pre;
+}
+
+.terminal-divider {
+    color: var(--terminal-green-dim);
+    margin: 20px 0;
+    text-align: center;
+}
+
+.terminal-divider::before,
+.terminal-divider::after {
+    content: '═══════════════════════════════════════';
+    display: block;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 768px) {
+    body {
+        font-size: 16px;
+    }
+    
+    .terminal-container {
+        max-width: 100%;
+        padding: 15px;
+    }
+    
+    .terminal-input,
+    .terminal-select {
+        font-size: 16px;
+        max-width: 100%;
+    }
+    
+    .terminal-button {
+        width: 100%;
+        font-size: 16px;
+    }
+    
+    .terminal-metric-label {
+        width: 200px;
+        display: block;
+        margin-bottom: 5px;
+    }
+    
+    .terminal-metric-value {
+        display: block;
+    }
+}
+
+@media (max-width: 480px) {
+    body {
+        font-size: 14px;
+    }
+    
+    .terminal-container {
+        padding: 10px;
+    }
+    
+    .terminal-results-header {
+        font-size: 20px;
+    }
+    
+    .terminal-metric-label {
+        width: 100%;
+    }
+}
+
+/* Remove all Bootstrap and modern elements */
+.navbar,
+.hero-section,
+.features-section,
+.footer,
+.card,
+.btn:not(.terminal-button),
+.badge,
+.alert:not(.terminal-success):not(.terminal-error):not(.terminal-info) {
+    display: none !important;
+}
+
+/* Hide any remaining modern UI elements */
+.container,
+.row,
+.col-*,
+.d-flex,
+.text-center,
+.bg-*:not(.terminal-bg) {
+    background: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+}
+
+/* Loading animation */
+.terminal-loading {
+    color: var(--terminal-amber);
+}
+
+.terminal-loading::after {
+    content: '';
+    animation: dots 1.5s steps(4, end) infinite;
+}
+
+@keyframes dots {
+    0%, 20% { content: ''; }
+    40% { content: '.'; }
+    60% { content: '..'; }
+    80%, 100% { content: '...'; }
+}
+
+/* System info display */
+.terminal-system-info {
+    color: var(--terminal-green-dim);
+    font-size: 14px;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+/* Command prompt style */
+.terminal-command-line {
+    margin: 10px 0;
+}
+
+.terminal-command-line::before {
+    content: 'C:\\ENERGY> ';
+    color: var(--terminal-amber);
+}
+
+/* Retro table styling for results */
+.terminal-table {
+    width: 100%;
+    border: 1px solid var(--terminal-green);
+    border-collapse: collapse;
+    margin: 20px 0;
+}
+
+.terminal-table th,
+.terminal-table td {
+    border: 1px solid var(--terminal-green);
+    padding: 8px;
+    text-align: left;
+    color: var(--terminal-green);
+}
+
+.terminal-table th {
+    background: rgba(0, 255, 0, 0.1);
+    color: var(--terminal-amber);
+    text-transform: uppercase;
+}
+
+.terminal-table tr:hover {
+    background: rgba(0, 255, 0, 0.05);
+}
+
+/* Special effects */
+.terminal-flicker {
+    animation: flicker 3s linear infinite;
+}
+
+@keyframes flicker {
+    0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+        opacity: 1;
+    }
+    20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+        opacity: 0.4;
+    }
+}
+
+/* Sourceful Energy logo in ASCII */
+.terminal-logo {
+    color: var(--terminal-green);
+    font-size: 12px;
+    line-height: 1;
+    margin: 20px 0;
+    text-align: center;
+    white-space: pre;
+    text-shadow: 0 0 5px currentColor;
+}
