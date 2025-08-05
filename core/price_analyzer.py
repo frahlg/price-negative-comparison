@@ -68,6 +68,45 @@ class PriceAnalyzer:
         analysis['period_days'] = (merged_df.index.max() - merged_df.index.min()).days
         analysis['total_hours'] = len(merged_df)
         
+        # Time series data for charts (limit to prevent large payloads)
+        time_series_limit = min(len(merged_df), 720)  # Max 30 days of hourly data
+        sample_df = merged_df.head(time_series_limit) if len(merged_df) > time_series_limit else merged_df
+        
+        analysis['time_series'] = {
+            'timestamps': [dt.isoformat() for dt in sample_df.index],
+            'production': sample_df['production_kwh'].tolist(),
+            'prices_eur_mwh': sample_df['price_eur_per_mwh'].tolist(),
+            'prices_sek_kwh': sample_df['price_sek_per_kwh'].tolist(),
+            'export_values': sample_df['export_value_sek'].tolist(),
+            'negative_price_mask': (sample_df['price_eur_per_mwh'] < 0).tolist()
+        }
+        
+        # Daily aggregations for monthly/weekly views
+        daily_data = merged_df.groupby(merged_df.index.date).agg({
+            'production_kwh': 'sum',
+            'price_eur_per_mwh': 'mean',
+            'export_value_sek': 'sum'
+        }).reset_index()
+        
+        analysis['daily_series'] = {
+            'dates': [d.isoformat() for d in daily_data['index']],
+            'daily_production': daily_data['production_kwh'].tolist(),
+            'daily_avg_price': daily_data['price_eur_per_mwh'].tolist(),
+            'daily_export_value': daily_data['export_value_sek'].tolist()
+        }
+        
+        # Negative pricing insights
+        negative_periods = merged_df[merged_df['price_eur_per_mwh'] < 0]
+        if len(negative_periods) > 0:
+            analysis['negative_price_timeline'] = {
+                'timestamps': [dt.isoformat() for dt in negative_periods.index],
+                'production_kwh': negative_periods['production_kwh'].tolist(),
+                'prices_eur_mwh': negative_periods['price_eur_per_mwh'].tolist(),
+                'cost_sek': negative_periods['export_value_sek'].tolist()
+            }
+        else:
+            analysis['negative_price_timeline'] = None
+        
         # Price statistics in SEK/kWh (user-friendly format)
         analysis['price_min_sek_kwh'] = merged_df['price_sek_per_kwh'].min()
         analysis['price_max_sek_kwh'] = merged_df['price_sek_per_kwh'].max()
@@ -86,21 +125,36 @@ class PriceAnalyzer:
         analysis['production_max'] = merged_df['production_kwh'].max()
         analysis['hours_with_production'] = (merged_df['production_kwh'] > 0).sum()
         
-        # Negative price analysis
+        # Negative price analysis (Enhanced)
         negative_prices = merged_df[merged_df['price_eur_per_mwh'] < 0]
         analysis['negative_price_hours'] = len(negative_prices)
         analysis['production_during_negative_prices'] = negative_prices['production_kwh'].sum()
         analysis['negative_export_cost_sek'] = negative_prices['export_value_sek'].sum()  # This will be negative
         analysis['negative_export_cost_abs_sek'] = abs(negative_prices['export_value_sek'].sum())  # Absolute cost
         
+        # Enhanced negative pricing metrics
+        analysis['negative_price_percentage'] = (len(negative_prices) / len(merged_df)) * 100 if len(merged_df) > 0 else 0
+        analysis['production_percentage_negative_prices'] = (analysis['production_during_negative_prices'] / analysis['production_total']) * 100 if analysis['production_total'] > 0 else 0
+        
         if len(negative_prices) > 0:
             analysis['avg_production_during_negative_prices'] = negative_prices['production_kwh'].mean()
             analysis['avg_negative_price_sek_per_kwh'] = negative_prices['price_sek_per_kwh'].mean()
             analysis['min_negative_price_sek_per_kwh'] = negative_prices['price_sek_per_kwh'].min()
+            
+            # Find the worst negative price period
+            worst_negative_idx = negative_prices['price_eur_per_mwh'].idxmin()
+            analysis['worst_negative_price_datetime'] = worst_negative_idx.isoformat()
+            analysis['worst_negative_price_eur_mwh'] = negative_prices.loc[worst_negative_idx, 'price_eur_per_mwh']
+            analysis['worst_negative_price_production'] = negative_prices.loc[worst_negative_idx, 'production_kwh']
+            analysis['worst_negative_price_cost'] = abs(negative_prices.loc[worst_negative_idx, 'export_value_sek'])
         else:
             analysis['avg_production_during_negative_prices'] = 0
             analysis['avg_negative_price_sek_per_kwh'] = 0
             analysis['min_negative_price_sek_per_kwh'] = 0
+            analysis['worst_negative_price_datetime'] = None
+            analysis['worst_negative_price_eur_mwh'] = 0
+            analysis['worst_negative_price_production'] = 0
+            analysis['worst_negative_price_cost'] = 0
         
         # Total export value
         analysis['total_export_value_sek'] = merged_df['export_value_sek'].sum()

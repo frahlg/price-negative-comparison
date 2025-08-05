@@ -7,6 +7,8 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.0/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/custom.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-adapter-date-fns/dist/chartjs-adapter-date-fns.bundle.min.js"></script>
 </head>
 <body>
     <!-- Header Navigation -->
@@ -166,6 +168,52 @@
                 </div>
             </div>
 
+            <!-- Enhanced Negative Price Analysis -->
+            <div class="row g-4 mb-5">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold mb-4">
+                                <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                                Negative Price Analysis
+                            </h5>
+                            <div class="row">
+                                <div class="col-md-2 text-center">
+                                    <h6 class="fw-bold text-danger">Hours</h6>
+                                    <h4 class="text-danger mb-1">{{ results.analysis.negative_price_hours }}</h4>
+                                    <small class="text-muted">{{ "%.1f"|format(results.analysis.negative_price_percentage|default(0)) }}% of time</small>
+                                </div>
+                                <div class="col-md-2 text-center">
+                                    <h6 class="fw-bold text-warning">Production</h6>
+                                    <h4 class="text-warning mb-1">{{ "%.1f"|format(results.analysis.production_during_negative_prices) }}</h4>
+                                    <small class="text-muted">kWh ({{ "%.1f"|format(results.analysis.production_percentage_negative_prices|default(0)) }}%)</small>
+                                </div>
+                                <div class="col-md-2 text-center">
+                                    <h6 class="fw-bold text-danger">Total Cost</h6>
+                                    <h4 class="text-danger mb-1">{{ "%.2f"|format(results.analysis.negative_export_cost_abs_sek * (results.metadata.currency_rate / 11.5)) }}</h4>
+                                    <small class="text-muted">{{ results.metadata.currency }}</small>
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h6 class="fw-bold text-info">Worst Period</h6>
+                                    {% if results.analysis.worst_negative_price_datetime %}
+                                    <h4 class="text-info mb-1">{{ "%.4f"|format((results.analysis.worst_negative_price_eur_mwh * results.metadata.currency_rate) / 1000) }}</h4>
+                                    <small class="text-muted">{{ results.metadata.currency }}/kWh<br>{{ results.analysis.worst_negative_price_datetime[:16] }}</small>
+                                    {% else %}
+                                    <h4 class="text-success mb-1">None</h4>
+                                    <small class="text-muted">No negative prices</small>
+                                    {% endif %}
+                                </div>
+                                <div class="col-md-3 text-center">
+                                    <h6 class="fw-bold text-secondary">Impact</h6>
+                                    <h4 class="text-secondary mb-1">{{ "%.1f"|format((results.analysis.negative_export_cost_abs_sek / results.analysis.total_export_value_sek) * 100) if results.analysis.total_export_value_sek > 0 else 0 }}%</h4>
+                                    <small class="text-muted">of total value</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Financial Metrics -->
             <div class="row g-4 mb-5">
                 <div class="col-md-6">
@@ -197,21 +245,21 @@
                     <div class="card border-0 shadow-sm h-100">
                         <div class="card-body">
                             <h5 class="card-title fw-bold mb-4">
-                                <i class="bi bi-exclamation-triangle text-warning me-2"></i>
-                                Negative Price Impact
+                                <i class="bi bi-calculator text-primary me-2"></i>
+                                Performance Metrics
                             </h5>
                             <div class="row">
                                 <div class="col-6 text-center">
-                                    <h4 class="text-danger mb-1">
-                                        {{ results.analysis.negative_price_hours }}
+                                    <h4 class="text-primary mb-1">
+                                        {{ "%.2f"|format(results.analysis.production_total / results.analysis.period_days) if results.analysis.period_days > 0 else 0 }}
                                     </h4>
-                                    <p class="text-muted mb-0">Hours</p>
+                                    <p class="text-muted mb-0">kWh/day avg</p>
                                 </div>
                                 <div class="col-6 text-center">
-                                    <h4 class="text-danger mb-1">
-                                        {{ "%.2f"|format(results.analysis.negative_export_cost_abs_sek * (results.metadata.currency_rate / 11.5)) }}
+                                    <h4 class="text-warning mb-1">
+                                        {{ "%.4f"|format((results.analysis.total_export_value_sek / results.analysis.production_total) * (results.metadata.currency_rate / 11.5)) if results.analysis.production_total > 0 else 0 }}
                                     </h4>
-                                    <p class="text-muted mb-0">Cost {{ results.metadata.currency }}</p>
+                                    <p class="text-muted mb-0">{{ results.metadata.currency }}/kWh avg</p>
                                 </div>
                             </div>
                         </div>
@@ -263,19 +311,68 @@
                 </div>
             </div>
 
-            <!-- Graph Placeholders -->
+            <!-- Interactive Charts with Timeline Controls -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <div class="row align-items-center mb-3">
+                                <div class="col-md-6">
+                                    <h5 class="card-title fw-bold mb-0">
+                                        <i class="bi bi-graph-up-arrow text-primary me-2"></i>
+                                        Interactive Analysis Charts
+                                    </h5>
+                                </div>
+                                <div class="col-md-6">
+                                    <div class="btn-group timeline-controls" role="group">
+                                        <button type="button" class="btn btn-outline-primary btn-sm active" data-period="all">
+                                            <i class="bi bi-calendar3 me-1"></i>All Data
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" data-period="7d">
+                                            <i class="bi bi-calendar-week me-1"></i>7 Days
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" data-period="30d">
+                                            <i class="bi bi-calendar-month me-1"></i>30 Days
+                                        </button>
+                                        <button type="button" class="btn btn-outline-primary btn-sm" data-period="negative">
+                                            <i class="bi bi-exclamation-triangle me-1"></i>Negative Only
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Production and Price Chart -->
+            <div class="row g-4 mb-5">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold mb-4">
+                                <i class="bi bi-lightning-charge text-success me-2"></i>
+                                Production vs Price Timeline
+                            </h5>
+                            <div style="height: 400px;">
+                                <canvas id="productionPriceChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Secondary Charts Row -->
             <div class="row g-4 mb-5">
                 <div class="col-md-6">
                     <div class="card border-0 shadow-sm">
                         <div class="card-body">
                             <h5 class="card-title fw-bold mb-4">
-                                <i class="bi bi-bar-chart text-primary me-2"></i>
-                                Production Timeline
+                                <i class="bi bi-pie-chart text-info me-2"></i>
+                                Price Distribution
                             </h5>
-                            <div class="placeholder-graph text-center p-5 bg-light rounded">
-                                <i class="bi bi-graph-up text-muted display-1 mb-3"></i>
-                                <p class="text-muted mb-0">Interactive chart coming soon</p>
-                                <small class="text-muted">Production vs Time visualization</small>
+                            <div style="height: 300px;">
+                                <canvas id="priceDistributionChart"></canvas>
                             </div>
                         </div>
                     </div>
@@ -285,18 +382,35 @@
                     <div class="card border-0 shadow-sm">
                         <div class="card-body">
                             <h5 class="card-title fw-bold mb-4">
-                                <i class="bi bi-pie-chart text-info me-2"></i>
-                                Price Distribution
+                                <i class="bi bi-bar-chart text-warning me-2"></i>
+                                Export Value Analysis
                             </h5>
-                            <div class="placeholder-graph text-center p-5 bg-light rounded">
-                                <i class="bi bi-pie-chart text-muted display-1 mb-3"></i>
-                                <p class="text-muted mb-0">Price histogram coming soon</p>
-                                <small class="text-muted">Negative vs positive price breakdown</small>
+                            <div style="height: 300px;">
+                                <canvas id="exportValueChart"></canvas>
                             </div>
                         </div>
                     </div>
                 </div>
             </div>
+
+            <!-- Negative Price Focus Chart -->
+            {% if results.analysis.negative_price_hours > 0 %}
+            <div class="row g-4 mb-5">
+                <div class="col-12">
+                    <div class="card border-0 shadow-sm border-warning">
+                        <div class="card-body">
+                            <h5 class="card-title fw-bold mb-4">
+                                <i class="bi bi-exclamation-triangle-fill text-warning me-2"></i>
+                                Negative Price Periods Detail
+                            </h5>
+                            <div style="height: 300px;">
+                                <canvas id="negativePriceChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Actions -->
             <div class="row">
@@ -338,6 +452,445 @@
 
     <!-- Bootstrap JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    
+    <!-- Analysis Data -->
+    <script>
+        // Pass analysis data to JavaScript
+        window.analysisData = {
+            metadata: {{ results.metadata | tojson }},
+            analysis: {{ results.analysis | tojson }},
+            {% if results.analysis.time_series %}
+            timeSeries: {{ results.analysis.time_series | tojson }},
+            {% else %}
+            timeSeries: null,
+            {% endif %}
+            {% if results.analysis.negative_price_timeline %}
+            negativePriceTimeline: {{ results.analysis.negative_price_timeline | tojson }},
+            {% else %}
+            negativePriceTimeline: null,
+            {% endif %}
+            currency: "{{ results.metadata.currency }}"
+        };
+        
+        // Check if chart data is available
+        if (!window.analysisData.timeSeries) {
+            console.warn('Chart data not available - session may have expired. Please re-upload your file.');
+        }
+    </script>
+    
+    <!-- Chart.js Configuration and Initialization -->
+    <script>
+        // Chart.js default settings
+        Chart.defaults.responsive = true;
+        Chart.defaults.maintainAspectRatio = false;
+        Chart.defaults.plugins.legend.position = 'top';
+        Chart.defaults.plugins.tooltip.mode = 'index';
+        Chart.defaults.plugins.tooltip.intersect = false;
+
+        // Global variables for charts
+        let productionPriceChart, priceDistributionChart, exportValueChart, negativePriceChart;
+        let currentPeriod = 'all';
+
+        // Initialize charts when DOM is loaded
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeCharts();
+            setupTimelineControls();
+        });
+
+        function initializeCharts() {
+            // 1. Main Production vs Price Chart
+            initProductionPriceChart();
+            
+            // 2. Price Distribution Chart
+            initPriceDistributionChart();
+            
+            // 3. Export Value Chart
+            initExportValueChart();
+            
+            // 4. Negative Price Chart (if applicable)
+            {% if results.analysis.negative_price_hours > 0 %}
+            initNegativePriceChart();
+            {% endif %}
+        }
+
+        function initProductionPriceChart() {
+            const ctx = document.getElementById('productionPriceChart').getContext('2d');
+            
+            // Check if time series data is available
+            if (!window.analysisData.timeSeries) {
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#666';
+                ctx.textAlign = 'center';
+                ctx.fillText('Chart data not available - please re-upload your file', ctx.canvas.width/2, ctx.canvas.height/2);
+                return;
+            }
+            
+            const data = getFilteredData(currentPeriod);
+            
+            productionPriceChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.timestamps.map(ts => new Date(ts)),
+                    datasets: [{
+                        label: 'Production (kWh)',
+                        data: data.production,
+                        borderColor: 'rgb(25, 135, 84)',
+                        backgroundColor: 'rgba(25, 135, 84, 0.1)',
+                        yAxisID: 'y',
+                        fill: true,
+                        tension: 0.1
+                    }, {
+                        label: `Price (${window.analysisData.currency}/kWh)`,
+                        data: data.prices_sek_kwh,
+                        borderColor: 'rgb(13, 110, 253)',
+                        backgroundColor: 'rgba(13, 110, 253, 0.1)',
+                        yAxisID: 'y1',
+                        fill: false,
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    interaction: {
+                        mode: 'index',
+                        intersect: false,
+                    },
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                displayFormats: {
+                                    hour: 'MMM dd HH:mm',
+                                    day: 'MMM dd'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            type: 'linear',
+                            display: true,
+                            position: 'left',
+                            title: {
+                                display: true,
+                                text: 'Production (kWh)'
+                            },
+                            beginAtZero: true
+                        },
+                        y1: {
+                            type: 'linear',
+                            display: true,
+                            position: 'right',
+                            title: {
+                                display: true,
+                                text: `Price (${window.analysisData.currency}/kWh)`
+                            },
+                            grid: {
+                                drawOnChartArea: false,
+                            },
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Production and Price Over Time'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                afterBody: function(context) {
+                                    const index = context[0].dataIndex;
+                                    const isNegative = data.negative_price_mask[index];
+                                    if (isNegative) {
+                                        return ['⚠️ Negative price period'];
+                                    }
+                                    return [];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initPriceDistributionChart() {
+            const ctx = document.getElementById('priceDistributionChart').getContext('2d');
+            const analysis = window.analysisData.analysis;
+            
+            priceDistributionChart = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Positive Prices', 'Negative Prices'],
+                    datasets: [{
+                        data: [
+                            analysis.total_hours - analysis.negative_price_hours,
+                            analysis.negative_price_hours
+                        ],
+                        backgroundColor: [
+                            'rgba(25, 135, 84, 0.8)',
+                            'rgba(220, 53, 69, 0.8)'
+                        ],
+                        borderColor: [
+                            'rgb(25, 135, 84)',
+                            'rgb(220, 53, 69)'
+                        ],
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Hours by Price Category'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const total = context.dataset.data.reduce((a, b) => a + b, 0);
+                                    const percentage = ((context.parsed / total) * 100).toFixed(1);
+                                    return `${context.label}: ${context.parsed} hours (${percentage}%)`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initExportValueChart() {
+            const ctx = document.getElementById('exportValueChart').getContext('2d');
+            const data = getFilteredData(currentPeriod);
+            
+            exportValueChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: data.timestamps.map(ts => new Date(ts)),
+                    datasets: [{
+                        label: `Export Value (${window.analysisData.currency})`,
+                        data: data.export_values.map(val => val * (window.analysisData.metadata.currency_rate / 11.5)),
+                        backgroundColor: data.negative_price_mask.map(isNeg => 
+                            isNeg ? 'rgba(220, 53, 69, 0.8)' : 'rgba(25, 135, 84, 0.8)'
+                        ),
+                        borderColor: data.negative_price_mask.map(isNeg => 
+                            isNeg ? 'rgb(220, 53, 69)' : 'rgb(25, 135, 84)'
+                        ),
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                displayFormats: {
+                                    hour: 'MMM dd HH:mm',
+                                    day: 'MMM dd'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: `Export Value (${window.analysisData.currency})`
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Hourly Export Value (Green = Positive, Red = Negative)'
+                        },
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+        }
+
+        {% if results.analysis.negative_price_hours > 0 %}
+        function initNegativePriceChart() {
+            const ctx = document.getElementById('negativePriceChart').getContext('2d');
+            const negData = window.analysisData.negativePriceTimeline;
+            
+            negativePriceChart = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [{
+                        label: 'Negative Price Periods',
+                        data: negData.timestamps.map((ts, i) => ({
+                            x: new Date(ts),
+                            y: negData.prices_eur_mwh[i]
+                        })),
+                        backgroundColor: 'rgba(220, 53, 69, 0.6)',
+                        borderColor: 'rgb(220, 53, 69)',
+                        pointRadius: negData.production_kwh.map(prod => Math.max(3, prod * 0.5)),
+                        pointHoverRadius: 8
+                    }]
+                },
+                options: {
+                    scales: {
+                        x: {
+                            type: 'time',
+                            time: {
+                                displayFormats: {
+                                    hour: 'MMM dd HH:mm',
+                                    day: 'MMM dd'
+                                }
+                            },
+                            title: {
+                                display: true,
+                                text: 'Time'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Price (EUR/MWh)'
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: 'Negative Price Periods (bubble size = production amount)'
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const index = context.dataIndex;
+                                    const production = negData.production_kwh[index];
+                                    const cost = Math.abs(negData.cost_sek[index]);
+                                    return [
+                                        `Price: ${context.parsed.y.toFixed(2)} EUR/MWh`,
+                                        `Production: ${production.toFixed(2)} kWh`,
+                                        `Cost: ${(cost * (window.analysisData.metadata.currency_rate / 11.5)).toFixed(2)} ${window.analysisData.currency}`
+                                    ];
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        {% endif %}
+
+        function getFilteredData(period) {
+            const timeSeries = window.analysisData.timeSeries;
+            
+            // Return empty data if no time series available
+            if (!timeSeries) {
+                return {
+                    timestamps: [],
+                    production: [],
+                    prices_eur_mwh: [],
+                    prices_sek_kwh: [],
+                    export_values: [],
+                    negative_price_mask: []
+                };
+            }
+            
+            if (period === 'negative') {
+                // Filter to show only negative price periods
+                const filtered = {
+                    timestamps: [],
+                    production: [],
+                    prices_eur_mwh: [],
+                    prices_sek_kwh: [],
+                    export_values: [],
+                    negative_price_mask: []
+                };
+                
+                for (let i = 0; i < timeSeries.negative_price_mask.length; i++) {
+                    if (timeSeries.negative_price_mask[i]) {
+                        filtered.timestamps.push(timeSeries.timestamps[i]);
+                        filtered.production.push(timeSeries.production[i]);
+                        filtered.prices_eur_mwh.push(timeSeries.prices_eur_mwh[i]);
+                        filtered.prices_sek_kwh.push(timeSeries.prices_sek_kwh[i]);
+                        filtered.export_values.push(timeSeries.export_values[i]);
+                        filtered.negative_price_mask.push(true);
+                    }
+                }
+                return filtered;
+            }
+            
+            if (period === 'all') {
+                return timeSeries;
+            }
+            
+            // Filter by days
+            const days = parseInt(period.replace('d', ''));
+            const cutoffDate = new Date();
+            cutoffDate.setDate(cutoffDate.getDate() - days);
+            
+            const filtered = {
+                timestamps: [],
+                production: [],
+                prices_eur_mwh: [],
+                prices_sek_kwh: [],
+                export_values: [],
+                negative_price_mask: []
+            };
+            
+            for (let i = 0; i < timeSeries.timestamps.length; i++) {
+                const date = new Date(timeSeries.timestamps[i]);
+                if (date >= cutoffDate) {
+                    filtered.timestamps.push(timeSeries.timestamps[i]);
+                    filtered.production.push(timeSeries.production[i]);
+                    filtered.prices_eur_mwh.push(timeSeries.prices_eur_mwh[i]);
+                    filtered.prices_sek_kwh.push(timeSeries.prices_sek_kwh[i]);
+                    filtered.export_values.push(timeSeries.export_values[i]);
+                    filtered.negative_price_mask.push(timeSeries.negative_price_mask[i]);
+                }
+            }
+            
+            return filtered;
+        }
+
+        function setupTimelineControls() {
+            const buttons = document.querySelectorAll('.timeline-controls button');
+            
+            buttons.forEach(button => {
+                button.addEventListener('click', function() {
+                    // Update active button
+                    buttons.forEach(btn => btn.classList.remove('active'));
+                    this.classList.add('active');
+                    
+                    // Update current period
+                    currentPeriod = this.dataset.period;
+                    
+                    // Update charts
+                    updateCharts();
+                });
+            });
+        }
+
+        function updateCharts() {
+            const data = getFilteredData(currentPeriod);
+            
+            // Update main chart
+            if (productionPriceChart) {
+                productionPriceChart.data.labels = data.timestamps.map(ts => new Date(ts));
+                productionPriceChart.data.datasets[0].data = data.production;
+                productionPriceChart.data.datasets[1].data = data.prices_sek_kwh;
+                productionPriceChart.update();
+            }
+            
+            // Update export value chart
+            if (exportValueChart) {
+                exportValueChart.data.labels = data.timestamps.map(ts => new Date(ts));
+                exportValueChart.data.datasets[0].data = data.export_values.map(val => val * (window.analysisData.metadata.currency_rate / 11.5));
+                exportValueChart.data.datasets[0].backgroundColor = data.negative_price_mask.map(isNeg => 
+                    isNeg ? 'rgba(220, 53, 69, 0.8)' : 'rgba(25, 135, 84, 0.8)'
+                );
+                exportValueChart.update();
+            }
+        }
+    </script>
     
     <!-- Custom JS -->
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>

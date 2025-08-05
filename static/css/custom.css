@@ -592,3 +592,53 @@ body {
         border-width: 2px;
     }
 }
+
+/* Timeline Controls */
+.timeline-controls {
+    justify-content: flex-end;
+}
+
+.timeline-controls .btn {
+    border-radius: 20px;
+    font-size: 0.875rem;
+    padding: 0.375rem 0.75rem;
+    transition: all 0.2s ease;
+}
+
+.timeline-controls .btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.timeline-controls .btn.active {
+    background-color: var(--bs-primary);
+    border-color: var(--bs-primary);
+    color: white;
+}
+
+/* Chart Container Styling */
+.chart-container {
+    position: relative;
+    background: white;
+    border-radius: 8px;
+    padding: 20px;
+}
+
+/* Enhanced negative price styling */
+.border-warning {
+    border-color: #ff6b35 !important;
+    border-width: 2px !important;
+}
+
+/* Responsive Chart Containers */
+@media (max-width: 768px) {
+    .timeline-controls {
+        justify-content: center;
+        margin-top: 1rem;
+    }
+    
+    .timeline-controls .btn {
+        font-size: 0.75rem;
+        padding: 0.25rem 0.5rem;
+    }
+}

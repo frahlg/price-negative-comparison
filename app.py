@@ -22,6 +22,8 @@ import os
 import json
 import numpy as np
 import sqlite3
+import pickle
+import uuid
 from datetime import datetime, date
 from pathlib import Path
 from utils.csv_format_detector_fallback import CSVFormatDetectorFallback
@@ -156,6 +158,25 @@ def safe_jsonify(data, status_code=200):
         error_response.headers['Content-Type'] = 'application/json'
         return error_response
 app.config['MAX_CONTENT_LENGTH'] = 16 * 1024 * 1024  # 16MB max file size
+
+def cleanup_old_cache_files():
+    """Clean up cache files older than 24 hours."""
+    try:
+        cache_dir = Path('data/cache')
+        if not cache_dir.exists():
+            return
+            
+        cutoff_time = datetime.now().timestamp() - (24 * 60 * 60)  # 24 hours ago
+        
+        for cache_file in cache_dir.glob('*.pkl'):
+            if cache_file.stat().st_mtime < cutoff_time:
+                try:
+                    cache_file.unlink()
+                    logger.info(f"Cleaned up old cache file: {cache_file.name}")
+                except Exception as e:
+                    logger.warning(f"Failed to clean up cache file {cache_file.name}: {e}")
+    except Exception as e:
+        logger.warning(f"Cache cleanup failed: {e}")
 
 # Currency conversion rates (base: EUR)
 CURRENCY_RATES = {
@@ -1576,7 +1597,34 @@ def results_page():
         flash('No analysis results found. Please upload a file first.', 'error')
         return redirect('/')
     
-    results = session['analysis_results']
+    # Load full analysis data from cache
+    session_id = session.get('session_id')
+    if session_id:
+        try:
+            cache_file = Path('data/cache') / f"{session_id}.pkl"
+            if cache_file.exists():
+                with open(cache_file, 'rb') as f:
+                    cached_data = pickle.load(f)
+                
+                # Use cached data which includes chart time series
+                results = {
+                    'analysis': cached_data['analysis'],
+                    'metadata': cached_data['metadata']
+                }
+                logger.info(f"Loaded full analysis from cache for session {session_id}")
+            else:
+                # Cache file not found
+                flash('Analysis data expired. Please upload your file again.', 'error')
+                return redirect('/')
+        except Exception as e:
+            logger.error(f"Error loading cached analysis: {e}")
+            flash('Error loading analysis data. Please upload your file again.', 'error')
+            return redirect('/')
+    else:
+        # No session ID
+        flash('Session expired. Please upload your file again.', 'error')
+        return redirect('/')
+    
     return render_template('results.html', 
                          results=results, 
                          page_title="Analysis Results")
@@ -1673,11 +1721,39 @@ def upload_page():
                 'data_points': int(len(merged_df))
             }
             
-            # Store minimal data in session (avoid large datasets in session)
+            # Store the full analysis (including chart data) using a unique session ID
+            session_id = session.get('session_id', None)
+            if not session_id:
+                session_id = str(uuid.uuid4())
+                session['session_id'] = session_id
+            
+            # Create a session-safe version of analysis (without large time series data)
+            session_analysis = {k: v for k, v in analysis_json.items() if k not in ['time_series', 'daily_series', 'negative_price_timeline']}
+            
+            # Store only essential metadata in session
             session['analysis_results'] = {
-                'analysis': analysis_json,
-                'metadata': metadata
+                'metadata': metadata,
+                'has_cache': True,
+                'session_id': session_id
             }
+            
+            # Store full analysis data temporarily (you could use Redis, file cache, or database)
+            # For now, we'll use a simple file-based cache
+            cache_dir = Path('data/cache')
+            cache_dir.mkdir(exist_ok=True)
+            cache_file = cache_dir / f"{session_id}.pkl"
+            
+            # Clean up old cache files periodically
+            cleanup_old_cache_files()
+            
+            with open(cache_file, 'wb') as f:
+                pickle.dump({
+                    'analysis': analysis_json,
+                    'metadata': metadata,
+                    'timestamp': datetime.now().isoformat()
+                }, f)
+            
+            logger.info(f"Analysis cached for session {session_id}, size: {len(str(analysis_json))} chars")
             
             flash('Analysis completed successfully!', 'success')
             return redirect('/results')
