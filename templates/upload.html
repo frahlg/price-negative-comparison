@@ -69,7 +69,8 @@
                 <div class="upload-content">
                     DRA OCH SLÄPP DINA FILER HÄR (CSV/EXCEL)<br>
                     ELLER <span style="color: #ffaa00; cursor: pointer;" onclick="document.getElementById('file').click()">KLICKA FÖR ATT VÄLJA FILER</span><br>
-                    <small style="color: #666666;">MAX FILSTORLEK: 16MB PER FIL • STÖDER FLERA FILER</small>
+                    <small style="color: #666666;">MAX FILSTORLEK: 16MB PER FIL • STÖDER FLERA FILER</small><br>
+                    <small style="color: #888888; margin-top: 5px; display: block;">TIP: Lägg till flera filer genom att dra och släppa eller klicka flera gånger</small>
                 </div>
                 <div class="files-info" id="filesInfo" style="display: none;">
                     <div class="terminal-text" style="color: #ffaa00; margin-bottom: 10px;">VALDA FILER:</div>
@@ -207,7 +208,8 @@
         const progressArea = document.getElementById('uploadProgress');
         const progressFill = document.getElementById('progressFill');
         
-        let selectedFiles = new DataTransfer();
+        // Use a simple array to store files instead of DataTransfer
+        let selectedFiles = [];
 
         // Drag and drop functionality
         uploadArea.addEventListener('dragover', (e) => {
@@ -231,6 +233,9 @@
         fileInput.addEventListener('change', (e) => {
             const files = Array.from(e.target.files);
             addFiles(files);
+            
+            // Clear the file input so the same file can be selected again if needed
+            e.target.value = '';
         });
 
         function addFiles(files) {
@@ -241,7 +246,14 @@
             files.forEach(file => {
                 const isValidFile = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
                 if (isValidFile && file.size <= 16 * 1024 * 1024) { // 16MB limit
-                    validFiles.push(file);
+                    // Check if file already exists
+                    let alreadyExists = selectedFiles.some(existingFile => 
+                        existingFile.name === file.name && existingFile.size === file.size
+                    );
+                    
+                    if (!alreadyExists) {
+                        validFiles.push(file);
+                    }
                 } else {
                     invalidFiles.push(file.name);
                 }
@@ -251,31 +263,34 @@
                 alert('FEL: FÖLJANDE FILER KUNDE INTE LADDAS:\\n' + invalidFiles.join('\\n') + '\\n\\nSTÖDDA FORMAT: CSV, XLS, XLSX - MAX 16MB PER FIL');
             }
             
-            // Add valid files to selectedFiles
-            validFiles.forEach(file => {
-                selectedFiles.items.add(file);
-            });
+            // Add valid files to selectedFiles array
+            selectedFiles.push(...validFiles);
             
-            // Update file input
-            fileInput.files = selectedFiles.files;
-            
+            // Update the hidden file input with all files
+            updateFileInput();
             updateFilesList();
+            
+            // Show confirmation when files are added
+            if (validFiles.length > 0) {
+                const fileNames = validFiles.map(f => f.name).join(', ');
+                console.log(`Lade till ${validFiles.length} fil(er): ${fileNames}`);
+                console.log(`Totalt antal filer: ${selectedFiles.length}`);
+            }
+        }
+
+        function updateFileInput() {
+            // Skip DataTransfer - we'll handle files directly in form submission
+            console.log(`Updated file input with ${selectedFiles.length} files`);
         }
 
         function removeFile(index) {
-            const newFiles = new DataTransfer();
-            for (let i = 0; i < selectedFiles.files.length; i++) {
-                if (i !== index) {
-                    newFiles.items.add(selectedFiles.files[i]);
-                }
-            }
-            selectedFiles = newFiles;
-            fileInput.files = selectedFiles.files;
+            selectedFiles.splice(index, 1);
+            updateFileInput();
             updateFilesList();
         }
 
         function updateFilesList() {
-            if (selectedFiles.files.length === 0) {
+            if (selectedFiles.length === 0) {
                 uploadContent.style.display = 'block';
                 filesInfo.style.display = 'none';
                 return;
@@ -284,17 +299,39 @@
             uploadContent.style.display = 'none';
             filesInfo.style.display = 'block';
             
+            // Update the header to show file count
+            const filesHeader = document.querySelector('#filesInfo .terminal-text');
+            if (selectedFiles.length === 1) {
+                filesHeader.textContent = 'VALD FIL:';
+            } else {
+                filesHeader.textContent = `VALDA FILER (${selectedFiles.length} st):`;
+            }
+            
             filesList.innerHTML = '';
-            for (let i = 0; i < selectedFiles.files.length; i++) {
-                const file = selectedFiles.files[i];
+            for (let i = 0; i < selectedFiles.length; i++) {
+                const file = selectedFiles[i];
                 const fileDiv = document.createElement('div');
-                fileDiv.style.cssText = 'margin: 5px 0; padding: 5px; background: #1a1a1a; border-left: 3px solid #ffaa00;';
+                fileDiv.style.cssText = 'margin: 5px 0; padding: 8px; background: #1a1a1a; border-left: 3px solid #ffaa00; border-radius: 3px;';
+                
+                // Add file number for multiple files
+                const fileNumber = selectedFiles.length > 1 ? `[${i + 1}] ` : '';
+                
                 fileDiv.innerHTML = `
-                    <span style="color: #ffaa00;">${file.name}</span>
-                    <span style="color: #666666; margin-left: 10px;">(${formatFileSize(file.size)})</span>
-                    <span style="color: #ff4444; cursor: pointer; margin-left: 10px;" onclick="removeFile(${i})">[Ta bort]</span>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <span style="color: #ffaa00; font-weight: bold;">${fileNumber}${file.name}</span>
+                            <span style="color: #666666; margin-left: 10px;">(${formatFileSize(file.size)})</span>
+                        </div>
+                        <span style="color: #ff4444; cursor: pointer; padding: 2px 8px; background: #331111; border-radius: 3px;" onclick="removeFile(${i})" title="Ta bort denna fil">✕</span>
+                    </div>
                 `;
                 filesList.appendChild(fileDiv);
+            }
+            
+            // Update the "add more files" text
+            const addMoreSpan = document.querySelector('#filesInfo div:last-child span');
+            if (addMoreSpan) {
+                addMoreSpan.textContent = `+ LÄGG TILL FLER FILER (${selectedFiles.length} valda)`;
             }
         }
 
@@ -308,9 +345,34 @@
 
         // Form submission with progress
         form.addEventListener('submit', (e) => {
+            e.preventDefault(); // Prevent default form submission
+            
+            // Check if we have files
+            if (selectedFiles.length === 0) {
+                alert('VÄLJ MINST EN FIL INNAN DU STARTAR ANALYSEN');
+                return;
+            }
+            
             submitBtn.disabled = true;
             submitBtn.textContent = 'ANALYSERAR...';
             progressArea.style.display = 'block';
+            
+            // Create FormData and add our selected files
+            const formData = new FormData();
+            
+            // Add all form fields
+            formData.append('email', document.getElementById('email').value);
+            formData.append('area', document.getElementById('area').value);
+            formData.append('currency', document.getElementById('currency').value);
+            formData.append('start_date', document.getElementById('start_date').value);
+            formData.append('end_date', document.getElementById('end_date').value);
+            
+            // Add all selected files
+            selectedFiles.forEach((file, index) => {
+                formData.append('file', file);
+            });
+            
+            console.log(`Skickar ${selectedFiles.length} filer till servern`);
             
             // Simulate progress
             let progress = 0;
@@ -320,11 +382,30 @@
                 progressFill.style.width = progress + '%';
             }, 200);
 
-            // Clear interval when form actually submits
-            setTimeout(() => {
+            // Submit with fetch
+            fetch('/', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => {
                 clearInterval(progressInterval);
                 progressFill.style.width = '100%';
-            }, 3000);
+                
+                if (response.ok) {
+                    // Redirect to results or handle success
+                    window.location.href = response.url;
+                } else {
+                    throw new Error('Upload failed');
+                }
+            })
+            .catch(error => {
+                clearInterval(progressInterval);
+                console.error('Upload error:', error);
+                alert('FEL VID UPPLADDNING: ' + error.message);
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'STARTA ANALYS [ENTER]';
+                progressArea.style.display = 'none';
+            });
         });
 
         // Terminal typing effect for cursor

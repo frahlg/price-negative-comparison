@@ -72,26 +72,35 @@
         <div class="terminal-session">
             <!-- Step 1: File Upload -->
             <div id="uploadStep" class="terminal-step">
-                <label class="terminal-label">PRODUKTIONSFIL (CSV/EXCEL):</label>
+                <label class="terminal-label">PRODUKTIONS- ELLER KONSUMTIONSFILER (CSV/EXCEL):</label>
                 <div class="terminal-file-area" id="uploadArea">
                     <input type="file" id="file" name="file" accept=".csv,.xls,.xlsx" multiple required style="display: none;" form="uploadForm">
                     <div class="upload-content">
                         DRA OCH SLÄPP DINA FILER HÄR (CSV/EXCEL)<br>
                         ELLER <span style="color: var(--terminal-orange); cursor: pointer;" onclick="document.getElementById('file').click()">KLICKA FÖR ATT VÄLJA FILER</span><br>
-                        <small style="color: var(--terminal-gray-dim);">MAX FILSTORLEK: 16MB PER FIL</small>
+                        <small style="color: var(--terminal-gray-dim);">MAX FILSTORLEK: 16MB PER FIL • STÖDER FLERA FILER</small><br>
+                        <small style="color: var(--terminal-gray); margin-top: 5px; display: block;">TIP: Lägg till flera filer genom att dra och släppa eller klicka flera gånger</small>
                     </div>
                     <div class="file-info" style="display: none;">
-                        FIL LADDAD: <span id="fileName" style="color: var(--terminal-orange);"></span><br>
-                        STORLEK: <span id="fileSize" style="color: var(--terminal-gray-dim);"></span>
+                        <div style="margin-bottom: 10px;">
+                            <span style="color: var(--terminal-orange); font-weight: bold;">VALDA FILER:</span>
+                            <span id="fileCount" style="color: var(--terminal-gray-dim); margin-left: 10px;"></span>
+                        </div>
+                        <div id="filesList" style="margin-bottom: 15px;"></div>
+                        <div style="border-top: 1px solid rgba(51, 255, 51, 0.2); padding-top: 10px;">
+                            <span style="color: var(--terminal-gray);">TOTAL STORLEK: </span>
+                            <span id="fileSize" style="color: var(--terminal-gray-dim);"></span><br>
+                            <small style="color: var(--terminal-green); cursor: pointer;" onclick="document.getElementById('file').click();">+ LÄGG TILL FLER FILER</small>
+                        </div>
                     </div>
                 </div>
             </div>
 
             <!-- Step 2: Email Terminal Prompt (Hidden initially) -->
             <div id="emailStep" class="terminal-step" style="display: none;">
-                <div class="terminal-prompt">sourceful@energy-analyzer:~$ echo "FIL MOTTAGEN"</div>
+                <div class="terminal-prompt">sourceful@energy-analyzer:~$ echo "FILER MOTTAGNA"</div>
                 <div class="terminal-text">
-                    FIL MOTTAGEN. FÖR ANALYS SKRIV IN DIN E-POST ADRESS:
+                    FILER MOTTAGNA. FÖR ANALYS SKRIV IN DIN E-POST ADRESS:
                 </div>
                 <div class="terminal-input-line">
                     <span class="terminal-prompt-char">$</span>
@@ -148,14 +157,15 @@
         // File upload handling
         const fileInput = document.getElementById('file');
         const uploadArea = document.getElementById('uploadArea');
-        const fileName = document.getElementById('fileName');
+        const fileCount = document.getElementById('fileCount');
         const fileSize = document.getElementById('fileSize');
+        const filesList = document.getElementById('filesList');
         const uploadContent = uploadArea.querySelector('.upload-content');
         const fileInfo = uploadArea.querySelector('.file-info');
         const progressFill = document.getElementById('progressFill');
         const progressText = document.getElementById('progressText');
 
-        let selectedFile = null;
+        let selectedFiles = []; // Change to array for multiple files
 
         // Drag and drop functionality
         uploadArea.addEventListener('dragover', (e) => {
@@ -171,36 +181,134 @@
             e.preventDefault();
             uploadArea.classList.remove('drag-over');
             
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                const file = files[0];
-                const validExtensions = ['.csv', '.xls', '.xlsx'];
-                const isValidFile = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
-                
-                if (isValidFile) {
-                    selectedFile = file;
-                    // Sätt filen i det riktiga file input
-                    const dt = new DataTransfer();
-                    dt.items.add(file);
-                    fileInput.files = dt.files;
-                    handleFileSelect(file);
-                } else {
-                    alert('FEL: STÖDDA FORMAT: CSV, XLS, XLSX');
-                }
-            }
+            const files = Array.from(e.dataTransfer.files);
+            addFiles(files);
         });
 
         // File input change
         fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                selectedFile = e.target.files[0];
-                handleFileSelect(selectedFile);
-            }
+            const files = Array.from(e.target.files);
+            addFiles(files);
+            // Clear input so same file can be selected again
+            e.target.value = '';
         });
 
-        function handleFileSelect(file) {
-            fileName.textContent = file.name;
-            fileSize.textContent = formatFileSize(file.size);
+        function addFiles(files) {
+            const validExtensions = ['.csv', '.xls', '.xlsx'];
+            let validFiles = [];
+            let invalidFiles = [];
+            
+            files.forEach(file => {
+                const isValidFile = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+                if (isValidFile && file.size <= 16 * 1024 * 1024) { // 16MB limit
+                    // Check if file already exists
+                    let alreadyExists = selectedFiles.some(existingFile => 
+                        existingFile.name === file.name && existingFile.size === file.size
+                    );
+                    
+                    if (!alreadyExists) {
+                        validFiles.push(file);
+                    }
+                } else if (file.size > 16 * 1024 * 1024) {
+                    invalidFiles.push(file.name + ' (för stor)');
+                } else {
+                    invalidFiles.push(file.name + ' (ogiltigt format)');
+                }
+            });
+            
+            if (invalidFiles.length > 0) {
+                alert('FEL: FÖLJANDE FILER KUNDE INTE LADDAS:\\n' + invalidFiles.join('\\n') + '\\n\\nSTÖDDA FORMAT: CSV, XLS, XLSX - MAX 16MB PER FIL');
+            }
+            
+            // Add valid files to selectedFiles array
+            selectedFiles.push(...validFiles);
+            
+            // Update file input with all files
+            updateFileInput();
+            handleFileSelect();
+            
+            console.log(`Lade till ${validFiles.length} fil(er). Totalt: ${selectedFiles.length} filer`);
+        }
+
+        function updateFileInput() {
+            // Create new DataTransfer to sync with file input
+            const dt = new DataTransfer();
+            selectedFiles.forEach(file => {
+                dt.items.add(file);
+            });
+            fileInput.files = dt.files;
+        }
+
+        function removeFile(index) {
+            console.log(`Tar bort fil ${index}: ${selectedFiles[index].name}`);
+            selectedFiles.splice(index, 1);
+            updateFileInput();
+            handleFileSelect();
+            
+            // If no files left, hide email step
+            if (selectedFiles.length === 0) {
+                emailStep.style.display = 'none';
+            }
+        }
+
+        function handleFileSelect() {
+            if (selectedFiles.length === 0) {
+                uploadContent.style.display = 'block';
+                fileInfo.style.display = 'none';
+                return;
+            }
+
+            // Update file count
+            if (selectedFiles.length === 1) {
+                fileCount.textContent = '(1 fil)';
+            } else {
+                fileCount.textContent = `(${selectedFiles.length} filer)`;
+            }
+
+            // Update total file size
+            const totalSize = selectedFiles.reduce((sum, file) => sum + file.size, 0);
+            fileSize.textContent = formatFileSize(totalSize);
+
+            // Build files list with remove buttons
+            filesList.innerHTML = '';
+            selectedFiles.forEach((file, index) => {
+                const fileDiv = document.createElement('div');
+                fileDiv.style.cssText = `
+                    margin: 5px 0; 
+                    padding: 8px 12px; 
+                    background: rgba(51, 255, 51, 0.05); 
+                    border: 1px solid rgba(51, 255, 51, 0.2);
+                    border-radius: 4px;
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                `;
+                
+                fileDiv.innerHTML = `
+                    <div style="flex: 1;">
+                        <span style="color: var(--terminal-green); font-weight: 500;">${file.name}</span>
+                        <span style="color: var(--terminal-gray-dim); margin-left: 10px; font-size: 0.9em;">(${formatFileSize(file.size)})</span>
+                    </div>
+                    <button onclick="event.stopPropagation(); removeFile(${index})" style="
+                        background: rgba(255, 68, 68, 0.2);
+                        border: 1px solid #ff4444;
+                        color: #ff4444;
+                        padding: 4px 8px;
+                        border-radius: 3px;
+                        cursor: pointer;
+                        font-size: 12px;
+                        font-family: monospace;
+                        transition: all 0.2s ease;
+                    " 
+                    onmouseover="this.style.background='rgba(255, 68, 68, 0.4)'; this.style.color='#ffffff';"
+                    onmouseout="this.style.background='rgba(255, 68, 68, 0.2)'; this.style.color='#ff4444';"
+                    title="Ta bort denna fil">
+                        🗑️
+                    </button>
+                `;
+                filesList.appendChild(fileDiv);
+            });
+            
             uploadContent.style.display = 'none';
             fileInfo.style.display = 'block';
             
@@ -228,9 +336,9 @@
                 return;
             }
 
-            // Kontrollera att fil är vald
-            if (!selectedFile || !fileInput.files.length) {
-                alert('INGEN FIL VALD');
+            // Kontrollera att filer är valda
+            if (selectedFiles.length === 0 || !fileInput.files.length) {
+                alert('INGA FILER VALDA');
                 return;
             }
 
@@ -283,6 +391,24 @@
         emailInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 submitEmail();
+            }
+        });
+
+        // Allow clicking on file-info area to add more files
+        fileInfo.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        // Make upload area always clickable to add more files
+        uploadArea.addEventListener('click', (e) => {
+            // Don't trigger if clicking on remove buttons or if the target is a button
+            if (e.target.tagName === 'BUTTON' || e.target.closest('button')) {
+                return;
+            }
+            
+            // Only trigger if clicking on the area itself or upload content
+            if (e.target === uploadArea || e.target.closest('.upload-content') || e.target.closest('.file-info')) {
+                fileInput.click();
             }
         });
 

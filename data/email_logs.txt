@@ -18,3 +18,4 @@
 2025-08-05T16:53:13.423334,hej@hej.com,Produktion_-_Viktor.csv,SE_4
 2025-08-05T16:58:36.088924,viktor@sourceful.energy,Produktion_-_Viktor.csv,SE_4
 2025-08-06T08:57:44.172198,asd@asldfij.com,Produktion_-_Viktor.xlsx,SE_4
+2025-08-06T09:18:19.779046,asd@c.com,Produktion_-_Viktor_v2_more_headers.xlsx,SE_4
