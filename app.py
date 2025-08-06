@@ -29,6 +29,7 @@ from pathlib import Path
 from utils.csv_format_detector_fallback import CSVFormatDetectorFallback
 from utils.csv_format_module import CSVFormatDetector
 from utils.ai_explainer import AIExplainer
+from utils.ai_file_analyzer import AIFileAnalyzer
 from dotenv import load_dotenv
 import logging
 from werkzeug.utils import secure_filename
@@ -189,7 +190,7 @@ CURRENCY_RATES = {
     'GBP': 0.85
 }
 
-ALLOWED_EXTENSIONS = {'csv', 'txt'}
+ALLOWED_EXTENSIONS = {'csv', 'txt', 'xls', 'xlsx'}
 
 def allowed_file(filename):
     """Check if file extension is allowed."""
@@ -1547,18 +1548,28 @@ def index():
     
     # Handle POST - File upload and analysis
     try:
-        # Validate file upload
+        # Validate file upload - support both single and multiple files
         if 'file' not in request.files:
-            flash('No file provided', 'error')
+            flash('Inga filer valda', 'error')
             return render_template('index.html', page_title="Dashboard")
         
-        file = request.files['file']
-        if file.filename == '':
-            flash('No file selected', 'error')
+        # Handle both single file (from index.html) and multiple files (from upload.html)
+        files = request.files.getlist('file')
+        if not files or all(f.filename == '' for f in files):
+            flash('Inga filer valda', 'error')
             return render_template('index.html', page_title="Dashboard")
         
-        if not allowed_file(file.filename):
-            flash('Invalid file type. Only CSV files are allowed.', 'error')
+        # Validate all files
+        valid_files = []
+        for file in files:
+            if file.filename != '' and allowed_file(file.filename):
+                valid_files.append(file)
+            elif file.filename != '':
+                flash(f'Ogiltig filtyp för {file.filename}. CSV och Excel-filer (XLS, XLSX) tillåtna.', 'error')
+                return render_template('index.html', page_title="Dashboard")
+        
+        if not valid_files:
+            flash('Inga giltiga filer att bearbeta.', 'error')
             return render_template('index.html', page_title="Dashboard")
         
         # Get form parameters
@@ -1567,8 +1578,12 @@ def index():
             flash('E-post adress krävs för analys.', 'error')
             return render_template('index.html', page_title="Dashboard")
         
-        area = request.form.get('area', 'SE_4')  # Default to SE_4
-        currency = request.form.get('currency', 'SEK').upper()  # Default to SEK
+        area = request.form.get('area')
+        if not area:
+            flash('Välj elområde.', 'error')
+            return render_template('index.html', page_title="Dashboard")
+        
+        currency = request.form.get('currency', 'SEK').upper()
         start_date = request.form.get('start_date')
         end_date = request.form.get('end_date')
         
@@ -1576,24 +1591,74 @@ def index():
         try:
             currency_rate = get_currency_rate(currency)
         except ValueError as e:
-            flash(f'Currency error: {str(e)}', 'error')
+            flash(f'Valutafel: {str(e)}', 'error')
             return render_template('index.html', page_title="Dashboard")
         
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(mode='w+b', suffix='.csv', delete=False) as temp_file:
-            file.save(temp_file.name)
-            temp_filename = temp_file.name
+        # Process multiple files with AI File Analyzer
+        temp_filenames = []
+        all_production_data = []
+        file_analyses = []
         
         try:
             # Create analysis components
             price_fetcher = PriceFetcher(db_path=SECURE_DB_PATH)
-            production_loader = ProductionLoader()
             analyzer = PriceAnalyzer()
+            file_analyzer = AIFileAnalyzer()
             
-            # Load production data
-            production_df = production_loader.load_production_data(temp_filename)
+            for i, file in enumerate(valid_files):
+                logger.info(f"Processing file {i+1}/{len(valid_files)}: {file.filename}")
+                
+                # Save uploaded file temporarily with correct extension
+                file_extension = Path(file.filename).suffix.lower()
+                logger.info(f"Original filename: {file.filename}, detected extension: {file_extension}")
+                temp_file = tempfile.NamedTemporaryFile(mode='wb', suffix=file_extension, delete=False)
+                temp_filename = temp_file.name
+                logger.info(f"Created temporary file: {temp_filename}")
+                file.save(temp_filename)
+                temp_file.close()
+                temp_filenames.append(temp_filename)
+                
+                # Use AI to analyze the file and load data
+                logger.info(f"Using AI file analyzer to understand {file.filename}")
+                
+                # Analyze the file content and format
+                file_analysis = file_analyzer.analyze_file(temp_filename)
+                file_analysis['original_filename'] = file.filename
+                file_analyses.append(file_analysis)
+                
+                logger.info(f"File analysis for {file.filename}: {file_analysis['data_type']} data in {file_analysis['energy_unit']}, "
+                           f"granularity: {file_analysis['time_granularity']}")
+                
+                # Load data using AI analysis
+                file_data = file_analyzer.load_data(temp_filename, file_analysis)
+                file_data.attrs['source_file'] = file.filename
+                file_data.attrs['file_analysis'] = file_analysis
+                
+                all_production_data.append(file_data)
+                
+                # Log the AI analysis for debugging
+                logger.info(f"AI detected for {file.filename}: {file_analysis['data_description']}")
+                if file_analysis.get('notes'):
+                    logger.info(f"AI notes for {file.filename}: {file_analysis['notes']}")
             
-            # Determine date range
+            # Combine all data files if multiple
+            if len(all_production_data) == 1:
+                production_df = all_production_data[0]
+                primary_analysis = file_analyses[0]
+            else:
+                logger.info(f"Combining {len(all_production_data)} data files")
+                # Combine multiple files - concatenate and sort by timestamp
+                production_df = pd.concat(all_production_data, ignore_index=False)
+                production_df = production_df.sort_index()
+                
+                # Use the first file's analysis as primary, but note multiple files
+                primary_analysis = file_analyses[0]
+                primary_analysis['combined_files'] = [f['original_filename'] for f in file_analyses]
+                primary_analysis['file_count'] = len(file_analyses)
+                
+                logger.info(f"Combined dataset shape: {production_df.shape}")
+            
+            # Determine date range from actual data
             production_start = pd.Timestamp(production_df.index.min(), tz='Europe/Stockholm')
             production_end = pd.Timestamp(production_df.index.max(), tz='Europe/Stockholm')
             
@@ -1621,22 +1686,25 @@ def index():
             # Convert analysis results to JSON-serializable format using our custom encoder
             analysis_json = json.loads(json.dumps(analysis, cls=NumpyJSONEncoder))
             
-            # Log email for future use (simple file logging for now)
+            # Log email for future use - support multiple files
             try:
-                log_entry = f"{datetime.now().isoformat()},{email},{secure_filename(file.filename)},{area}\n"
+                file_names = [f['original_filename'] for f in file_analyses] if len(file_analyses) > 1 else [valid_files[0].filename]
+                log_entry = f"{datetime.now().isoformat()},{email},{','.join([secure_filename(fn) for fn in file_names])},{area}\n"
                 with open('data/email_logs.txt', 'a', encoding='utf-8') as f:
                     f.write(log_entry)
-                logger.info(f"Logged email for analysis: {email[:10]}...")
+                logger.info(f"Logged email for analysis: {email[:10]}... with {len(file_names)} file(s)")
             except Exception as e:
                 logger.warning(f"Failed to log email: {e}")
 
-            # Prepare metadata with native types
+            # Prepare metadata with native types - support multiple files
             metadata = {
                 'email': email,
                 'area_code': area,
                 'currency': currency,
                 'currency_rate': float(currency_rate),
-                'file_name': secure_filename(file.filename),
+                'file_names': [secure_filename(f['original_filename']) for f in file_analyses],
+                'file_count': len(file_analyses),
+                'ai_analysis': primary_analysis,
                 'start_date': start_date.isoformat(),
                 'end_date': end_date.isoformat(),
                 'data_points': int(len(merged_df))
@@ -1693,11 +1761,13 @@ def index():
             return redirect('/results')
             
         finally:
-            # Clean up temporary file
-            try:
-                os.unlink(temp_filename)
-            except:
-                pass
+            # Clean up temporary files
+            for temp_filename in temp_filenames:
+                try:
+                    os.unlink(temp_filename)
+                    logger.debug(f"Cleaned up temporary file: {temp_filename}")
+                except Exception as e:
+                    logger.warning(f"Failed to clean up {temp_filename}: {e}")
                 
     except Exception as e:
         logger.error(f"Upload processing error: {e}")
@@ -1795,8 +1865,9 @@ def results_page():
                          results=results, 
                          page_title="Analysis Results")
 
-@app.route('/upload', methods=['GET', 'POST'])
-def upload_page():
+# DISABLED: Consolidated into main index route
+# @app.route('/upload', methods=['GET', 'POST'])
+# def upload_page():
     """Upload page for production data analysis."""
     if request.method == 'GET':
         return render_template('upload.html', page_title="Upload & Analyze")
@@ -1805,16 +1876,25 @@ def upload_page():
     try:
         # Validate file upload
         if 'file' not in request.files:
-            flash('No file provided', 'error')
+            flash('Inga filer valda', 'error')
             return render_template('upload.html', page_title="Upload & Analyze")
         
-        file = request.files['file']
-        if file.filename == '':
-            flash('No file selected', 'error')
+        files = request.files.getlist('file')
+        if not files or all(f.filename == '' for f in files):
+            flash('Inga filer valda', 'error')
             return render_template('upload.html', page_title="Upload & Analyze")
         
-        if not allowed_file(file.filename):
-            flash('Invalid file type. Only CSV files are allowed.', 'error')
+        # Validate all files
+        valid_files = []
+        for file in files:
+            if file.filename != '' and allowed_file(file.filename):
+                valid_files.append(file)
+            elif file.filename != '':
+                flash(f'Ogiltig filtyp för {file.filename}. CSV och Excel-filer (XLS, XLSX) tillåtna.', 'error')
+                return render_template('upload.html', page_title="Upload & Analyze")
+        
+        if not valid_files:
+            flash('Inga giltiga filer att bearbeta.', 'error')
             return render_template('upload.html', page_title="Upload & Analyze")
         
         # Get form parameters
@@ -1825,7 +1905,7 @@ def upload_page():
         
         area = request.form.get('area')
         if not area:
-            flash('Please select an electricity area.', 'error')
+            flash('Välj elområde.', 'error')
             return render_template('upload.html', page_title="Upload & Analyze")
         
         currency = request.form.get('currency', 'SEK').upper()
@@ -1836,22 +1916,77 @@ def upload_page():
         try:
             currency_rate = get_currency_rate(currency)
         except ValueError as e:
-            flash(f'Currency error: {str(e)}', 'error')
+            flash(f'Valutafel: {str(e)}', 'error')
             return render_template('upload.html', page_title="Upload & Analyze")
         
-        # Save uploaded file temporarily
-        with tempfile.NamedTemporaryFile(mode='w+b', suffix='.csv', delete=False) as temp_file:
-            file.save(temp_file.name)
-            temp_filename = temp_file.name
+        # Process all uploaded files
+        all_production_data = []
+        file_analyses = []
+        temp_filenames = []
+        
+        logger.info(f"Processing {len(valid_files)} uploaded files")
         
         try:
             # Create analysis components
             price_fetcher = PriceFetcher(db_path=SECURE_DB_PATH)
-            production_loader = ProductionLoader()
             analyzer = PriceAnalyzer()
+            file_analyzer = AIFileAnalyzer()
             
-            # Load production data
-            production_df = production_loader.load_production_data(temp_filename)
+            for i, file in enumerate(valid_files):
+                logger.info(f"Processing file {i+1}/{len(valid_files)}: {file.filename}")
+                
+                # Save uploaded file temporarily with correct extension
+                file_extension = Path(file.filename).suffix.lower()
+                logger.info(f"Original filename: {file.filename}, detected extension: {file_extension}")
+                temp_file = tempfile.NamedTemporaryFile(mode='wb', suffix=file_extension, delete=False)
+                temp_filename = temp_file.name
+                logger.info(f"Created temporary file: {temp_filename}")
+                file.save(temp_filename)
+                temp_file.close()
+                temp_filenames.append(temp_filename)
+                
+                # Use AI to analyze the file and load data
+                logger.info(f"Using AI file analyzer to understand {file.filename}")
+                
+                # Analyze the file content and format
+                file_analysis = file_analyzer.analyze_file(temp_filename)
+                file_analysis['original_filename'] = file.filename
+                file_analyses.append(file_analysis)
+                
+                logger.info(f"File analysis for {file.filename}: {file_analysis['data_type']} data in {file_analysis['energy_unit']}, "
+                           f"granularity: {file_analysis['time_granularity']}")
+                
+                # Load data using AI analysis
+                file_data = file_analyzer.load_data(temp_filename, file_analysis)
+                file_data.attrs['source_file'] = file.filename
+                file_data.attrs['file_analysis'] = file_analysis
+                
+                all_production_data.append(file_data)
+                
+                # Log the AI analysis for debugging
+                logger.info(f"AI detected for {file.filename}: {file_analysis['data_description']}")
+                if file_analysis.get('notes'):
+                    logger.info(f"AI notes for {file.filename}: {file_analysis['notes']}")
+            
+            # Combine all data files if multiple
+            if len(all_production_data) == 1:
+                production_df = all_production_data[0]
+                primary_analysis = file_analyses[0]
+            else:
+                logger.info(f"Combining {len(all_production_data)} data files")
+                # Combine multiple files - concatenate and sort by timestamp
+                production_df = pd.concat(all_production_data, axis=0)
+                production_df = production_df.sort_index()
+                
+                # Remove any duplicate timestamps (keep first occurrence)
+                production_df = production_df[~production_df.index.duplicated(keep='first')]
+                
+                # Create combined analysis info
+                primary_analysis = file_analyses[0]  # Use first file as primary
+                primary_analysis['combined_files'] = [fa['original_filename'] for fa in file_analyses]
+                primary_analysis['data_description'] = f"Combined data from {len(file_analyses)} files"
+                
+                logger.info(f"Combined dataset: {len(production_df)} rows from {production_df.index.min()} to {production_df.index.max()}")
             
             # Determine date range
             production_start = pd.Timestamp(production_df.index.min(), tz='Europe/Stockholm')
@@ -1953,15 +2088,16 @@ def upload_page():
             return redirect('/results')
             
         finally:
-            # Clean up temporary file
-            try:
-                os.unlink(temp_filename)
-            except:
-                pass
+            # Clean up temporary files
+            for temp_filename in temp_filenames:
+                try:
+                    os.unlink(temp_filename)
+                except:
+                    pass
                 
     except Exception as e:
         logger.error(f"Upload processing error: {e}")
-        flash(f'Analysis failed: {str(e)}', 'error')
+        flash(f'Analys misslyckades: {str(e)}', 'error')
         return render_template('upload.html', page_title="Upload & Analyze")
 
 if __name__ == '__main__':

@@ -72,13 +72,13 @@
         <div class="terminal-session">
             <!-- Step 1: File Upload -->
             <div id="uploadStep" class="terminal-step">
-                <label class="terminal-label">PRODUKTIONSFIL (CSV):</label>
+                <label class="terminal-label">PRODUKTIONSFIL (CSV/EXCEL):</label>
                 <div class="terminal-file-area" id="uploadArea">
-                    <input type="file" id="file" name="file" accept=".csv" required style="display: none;" form="uploadForm">
+                    <input type="file" id="file" name="file" accept=".csv,.xls,.xlsx" multiple required style="display: none;" form="uploadForm">
                     <div class="upload-content">
-                        DRA OCH SLÄPP DIN CSV-FIL HÄR<br>
-                        ELLER <span style="color: var(--terminal-orange); cursor: pointer;" onclick="document.getElementById('file').click()">KLICKA FÖR ATT VÄLJA FIL</span><br>
-                        <small style="color: var(--terminal-gray-dim);">MAX FILSTORLEK: 16MB</small>
+                        DRA OCH SLÄPP DINA FILER HÄR (CSV/EXCEL)<br>
+                        ELLER <span style="color: var(--terminal-orange); cursor: pointer;" onclick="document.getElementById('file').click()">KLICKA FÖR ATT VÄLJA FILER</span><br>
+                        <small style="color: var(--terminal-gray-dim);">MAX FILSTORLEK: 16MB PER FIL</small>
                     </div>
                     <div class="file-info" style="display: none;">
                         FIL LADDAD: <span id="fileName" style="color: var(--terminal-orange);"></span><br>
@@ -174,7 +174,10 @@
             const files = e.dataTransfer.files;
             if (files.length > 0) {
                 const file = files[0];
-                if (file.name.toLowerCase().endsWith('.csv')) {
+                const validExtensions = ['.csv', '.xls', '.xlsx'];
+                const isValidFile = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+                
+                if (isValidFile) {
                     selectedFile = file;
                     // Sätt filen i det riktiga file input
                     const dt = new DataTransfer();
@@ -182,7 +185,7 @@
                     fileInput.files = dt.files;
                     handleFileSelect(file);
                 } else {
-                    alert('FEL: ENDAST CSV-FILER TILLÅTNA');
+                    alert('FEL: STÖDDA FORMAT: CSV, XLS, XLSX');
                 }
             }
         });

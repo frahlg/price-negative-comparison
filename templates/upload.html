@@ -42,18 +42,18 @@
 
         <!-- Upload Instructions -->
         <div class="terminal-prompt terminal-text">
-            INSTRUKTIONER: LADDA UPP DIN CSV-FIL MED PRODUKTIONSDATA
+            INSTRUKTIONER: LADDA UPP DIN CSV- ELLER EXCEL-FIL MED PRODUKTIONSDATA
         </div>
 
         <div class="terminal-command-line terminal-text">
-            FILFORMAT: DATUM,PRODUKTION (kWh)
+            FILFORMAT: CSV, XLS, XLSX - DATUM,PRODUKTION (kWh/MWh)
         </div>
         <div class="terminal-command-line terminal-text">
             EXEMPEL: 2024-01-01 12:00,5.2
         </div>
 
         <!-- Upload Form -->
-        <form id="uploadForm" action="/upload" method="POST" enctype="multipart/form-data" class="terminal-form">
+        <form id="uploadForm" action="/" method="POST" enctype="multipart/form-data" class="terminal-form">
             
             <!-- Email Input -->
             <label class="terminal-label">E-POST (KRÄVS FÖR ANALYS):</label>
@@ -63,17 +63,20 @@
             </div>
 
             <!-- File Upload -->
-            <label class="terminal-label">PRODUKTIONSFIL (CSV):</label>
+            <label class="terminal-label">PRODUKTIONS- ELLER KONSUMTIONSFIL:</label>
             <div class="terminal-file-area" id="uploadArea">
-                <input type="file" id="file" name="file" accept=".csv" required style="display: none;">
+                <input type="file" id="file" name="file" accept=".csv,.xls,.xlsx" multiple style="display: none;">
                 <div class="upload-content">
-                    DRA OCH SLÄPP DIN CSV-FIL HÄR<br>
-                    ELLER <span style="color: #ffaa00; cursor: pointer;" onclick="document.getElementById('file').click()">KLICKA FÖR ATT VÄLJA FIL</span><br>
-                    <small style="color: #666666;">MAX FILSTORLEK: 16MB</small>
+                    DRA OCH SLÄPP DINA FILER HÄR (CSV/EXCEL)<br>
+                    ELLER <span style="color: #ffaa00; cursor: pointer;" onclick="document.getElementById('file').click()">KLICKA FÖR ATT VÄLJA FILER</span><br>
+                    <small style="color: #666666;">MAX FILSTORLEK: 16MB PER FIL • STÖDER FLERA FILER</small>
                 </div>
-                <div class="file-info" style="display: none;">
-                    FIL LADDAD: <span id="fileName" style="color: #ffaa00;"></span><br>
-                    STORLEK: <span id="fileSize" style="color: #666666;"></span>
+                <div class="files-info" id="filesInfo" style="display: none;">
+                    <div class="terminal-text" style="color: #ffaa00; margin-bottom: 10px;">VALDA FILER:</div>
+                    <div id="filesList"></div>
+                    <div style="margin-top: 10px;">
+                        <span style="color: #ffaa00; cursor: pointer;" onclick="document.getElementById('file').click()">+ LÄGG TILL FLER FILER</span>
+                    </div>
                 </div>
             </div>
 
@@ -141,19 +144,27 @@
         <div class="terminal-prompt">HJÄLP:</div>
         <div class="terminal-metric">
             <span class="terminal-metric-label">FILFORMAT:</span>
-            <span class="terminal-metric-value">CSV MED KOMMATECKEN ELLER SEMIKOLON</span>
+            <span class="terminal-metric-value">CSV, XLS, XLSX - AI DETEKTERAR AUTOMATISKT</span>
+        </div>
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">FLERFILSUPPORT:</span>
+            <span class="terminal-metric-value">LADDA UPP FLERA FILER SAMTIDIGT</span>
         </div>
         <div class="terminal-metric">
             <span class="terminal-metric-label">KOLUMNER:</span>
-            <span class="terminal-metric-value">DATUM/TID, PRODUKTION I kWh</span>
+            <span class="terminal-metric-value">DATUM/TID, PRODUKTION/KONSUMPTION</span>
         </div>
         <div class="terminal-metric">
-            <span class="terminal-metric-label">DATUMFORMAT:</span>
-            <span class="terminal-metric-value">YYYY-MM-DD HH:MM ELLER LIKNANDE</span>
+            <span class="terminal-metric-label">ENHETER:</span>
+            <span class="terminal-metric-value">kWh, MWh, Wh - AI KONVERTERAR AUTOMATISKT</span>
         </div>
         <div class="terminal-metric">
-            <span class="terminal-metric-label">KODNING:</span>
-            <span class="terminal-metric-value">UTF-8, ISO-8859-1 ELLER CP1252</span>
+            <span class="terminal-metric-label">DATATYP:</span>
+            <span class="terminal-metric-value">AI IDENTIFIERAR PRODUKTION VS KONSUMPTION</span>
+        </div>
+        <div class="terminal-metric">
+            <span class="terminal-metric-label">HEADER:</span>
+            <span class="terminal-metric-value">MED ELLER UTAN - AI HITTAR AUTOMATISKT</span>
         </div>
 
         <div class="terminal-divider"></div>
@@ -188,14 +199,15 @@
         // File upload handling
         const fileInput = document.getElementById('file');
         const uploadArea = document.getElementById('uploadArea');
-        const fileName = document.getElementById('fileName');
-        const fileSize = document.getElementById('fileSize');
         const uploadContent = uploadArea.querySelector('.upload-content');
-        const fileInfo = uploadArea.querySelector('.file-info');
+        const filesInfo = document.getElementById('filesInfo');
+        const filesList = document.getElementById('filesList');
         const form = document.getElementById('uploadForm');
         const submitBtn = document.getElementById('submitBtn');
         const progressArea = document.getElementById('uploadProgress');
         const progressFill = document.getElementById('progressFill');
+        
+        let selectedFiles = new DataTransfer();
 
         // Drag and drop functionality
         uploadArea.addEventListener('dragover', (e) => {
@@ -211,30 +223,79 @@
             e.preventDefault();
             uploadArea.classList.remove('drag-over');
             
-            const files = e.dataTransfer.files;
-            if (files.length > 0) {
-                const file = files[0];
-                if (file.name.toLowerCase().endsWith('.csv')) {
-                    fileInput.files = files;
-                    handleFileSelect(file);
-                } else {
-                    alert('FEL: ENDAST CSV-FILER TILLÅTNA');
-                }
-            }
+            const files = Array.from(e.dataTransfer.files);
+            addFiles(files);
         });
 
         // File input change
         fileInput.addEventListener('change', (e) => {
-            if (e.target.files.length > 0) {
-                handleFileSelect(e.target.files[0]);
-            }
+            const files = Array.from(e.target.files);
+            addFiles(files);
         });
 
-        function handleFileSelect(file) {
-            fileName.textContent = file.name;
-            fileSize.textContent = formatFileSize(file.size);
+        function addFiles(files) {
+            const validExtensions = ['.csv', '.xls', '.xlsx'];
+            let validFiles = [];
+            let invalidFiles = [];
+            
+            files.forEach(file => {
+                const isValidFile = validExtensions.some(ext => file.name.toLowerCase().endsWith(ext));
+                if (isValidFile && file.size <= 16 * 1024 * 1024) { // 16MB limit
+                    validFiles.push(file);
+                } else {
+                    invalidFiles.push(file.name);
+                }
+            });
+            
+            if (invalidFiles.length > 0) {
+                alert('FEL: FÖLJANDE FILER KUNDE INTE LADDAS:\\n' + invalidFiles.join('\\n') + '\\n\\nSTÖDDA FORMAT: CSV, XLS, XLSX - MAX 16MB PER FIL');
+            }
+            
+            // Add valid files to selectedFiles
+            validFiles.forEach(file => {
+                selectedFiles.items.add(file);
+            });
+            
+            // Update file input
+            fileInput.files = selectedFiles.files;
+            
+            updateFilesList();
+        }
+
+        function removeFile(index) {
+            const newFiles = new DataTransfer();
+            for (let i = 0; i < selectedFiles.files.length; i++) {
+                if (i !== index) {
+                    newFiles.items.add(selectedFiles.files[i]);
+                }
+            }
+            selectedFiles = newFiles;
+            fileInput.files = selectedFiles.files;
+            updateFilesList();
+        }
+
+        function updateFilesList() {
+            if (selectedFiles.files.length === 0) {
+                uploadContent.style.display = 'block';
+                filesInfo.style.display = 'none';
+                return;
+            }
+            
             uploadContent.style.display = 'none';
-            fileInfo.style.display = 'block';
+            filesInfo.style.display = 'block';
+            
+            filesList.innerHTML = '';
+            for (let i = 0; i < selectedFiles.files.length; i++) {
+                const file = selectedFiles.files[i];
+                const fileDiv = document.createElement('div');
+                fileDiv.style.cssText = 'margin: 5px 0; padding: 5px; background: #1a1a1a; border-left: 3px solid #ffaa00;';
+                fileDiv.innerHTML = `
+                    <span style="color: #ffaa00;">${file.name}</span>
+                    <span style="color: #666666; margin-left: 10px;">(${formatFileSize(file.size)})</span>
+                    <span style="color: #ff4444; cursor: pointer; margin-left: 10px;" onclick="removeFile(${i})">[Ta bort]</span>
+                `;
+                filesList.appendChild(fileDiv);
+            }
         }
 
         function formatFileSize(bytes) {
