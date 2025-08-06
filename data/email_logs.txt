@@ -12,3 +12,8 @@
 2025-08-05T15:48:34.776497,fredrik@soyur.com,Produktion_-_Viktor.csv,SE_4
 2025-08-05T15:59:21.024395,hej@hehj.com,Produktion_-_Viktor.csv,SE_4
 2025-08-05T16:10:18.644512,asd@asd.com,Produktion_-_Viktor.csv,SE_4
+2025-08-05T16:35:46.339107,my@accoubnt.com,Produktion_-_Viktor.csv,SE_4
+2025-08-05T16:42:18.082952,asdasd@asdasd.com,Produktion_-_Viktor.csv,SE_4
+2025-08-05T16:47:59.280402,asdasd@asdas.com,Produktion_-_Viktor.csv,SE_4
+2025-08-05T16:53:13.423334,hej@hej.com,Produktion_-_Viktor.csv,SE_4
+2025-08-05T16:58:36.088924,viktor@sourceful.energy,Produktion_-_Viktor.csv,SE_4

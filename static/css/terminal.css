@@ -1,42 +1,60 @@
-/* Retro Terminal CSS - C64/VT323 Style */
+/* Modern Terminal CSS - Professional Retro Style */
 
-/* Import VT323 font from Google Fonts */
-@import url('https://fonts.googleapis.com/css2?family=VT323:wght@400&display=swap');
+/* Import high-quality monospace fonts */
+@import url('https://fonts.googleapis.com/css2?family=Inconsolata:wght@400;500;600&family=VT323:wght@400&display=swap');
 
-/* Root variables for terminal theme */
+/* Root variables for polished terminal theme */
 :root {
     --terminal-bg: #000000;
-    --terminal-green: #00ff00;
-    --terminal-green-dim: #00aa00;
-    --terminal-amber: #ffffff;
-    --terminal-orange: #ffaa00;
-    --terminal-red: #ff4444;
-    --terminal-white: #ffffff;
-    --terminal-gray: #cccccc;
-    --terminal-glow: 0 0 10px currentColor;
-    --terminal-scan-line: rgba(0, 255, 0, 0.03);
+    --terminal-green: #33FF33;          /* Softer green for less eye strain */
+    --terminal-green-dim: #00CC00;      /* Dimmer green for secondary text */
+    --terminal-green-bright: #00FF00;   /* Bright green for highlights */
+    --terminal-amber: #FFFF00;          /* Yellow for highlights/info */
+    --terminal-orange: #FF9500;         /* Orange for warnings */
+    --terminal-red: #FF0000;            /* Red for errors */
+    --terminal-white: #FFFFFF;
+    --terminal-gray: #CCCCCC;
+    --terminal-gray-dim: #666666;
+    --terminal-scan-line: rgba(51, 255, 51, 0.15); /* Subtle scanlines */
+    
+    /* Container and spacing */
+    --container-max-width: 80ch;
+    --base-padding: 1.5rem;
+    --section-spacing: 2rem;
+    
+    /* Typography */
+    --base-font-size: 16px;
+    --line-height: 1.6;
+    --font-family-mono: 'Inconsolata', 'VT323', 'Courier New', monospace;
+    --font-family-display: 'VT323', monospace;
 }
 
-/* Reset all modern styling */
-* {
+/* Reset and base styles */
+*,
+*::before,
+*::after {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
 
-/* Terminal body styling */
+/* Terminal body styling with improved readability */
 body {
     background-color: var(--terminal-bg);
     color: var(--terminal-green);
-    font-family: 'VT323', 'Courier New', monospace;
-    font-size: 20px;
-    line-height: 1.5;
+    font-family: var(--font-family-mono);
+    font-size: var(--base-font-size);
+    line-height: var(--line-height);
     min-height: 100vh;
     overflow-x: auto;
     position: relative;
+    /* Improved font rendering */
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
 }
 
-/* CRT screen effect */
+/* Subtle CRT screen effect - low opacity for readability */
 body::before {
     content: '';
     position: fixed;
@@ -54,49 +72,130 @@ body::before {
         );
     pointer-events: none;
     z-index: 1000;
+    opacity: 0.2; /* Subtle effect */
 }
 
-/* Terminal container */
+/* Fixed-width centered container */
 .terminal-container {
-    max-width: 120ch;
+    max-width: var(--container-max-width);
     margin: 0 auto;
-    padding: 20px;
+    padding: var(--base-padding);
     position: relative;
     z-index: 1;
-    word-wrap: break-word;
-    overflow-wrap: break-word;
+    
+    /* Add subtle CRT curve effect */
+    border-radius: 8px;
+    
+    /* Subtle vignette effect */
+    background: radial-gradient(
+        ellipse at center,
+        rgba(0, 0, 0, 0) 0%,
+        rgba(0, 0, 0, 0.1) 100%
+    );
 }
 
-/* Text glow effect */
+/* Section separators and layout */
+.terminal-section {
+    margin: var(--section-spacing) 0;
+    padding: var(--base-padding);
+    border: 1px solid rgba(51, 255, 51, 0.3);
+    border-radius: 4px;
+    background: rgba(51, 255, 51, 0.02);
+}
+
+.terminal-divider {
+    margin: var(--section-spacing) 0;
+    padding: 0.5rem 0;
+    text-align: center;
+    color: var(--terminal-green-dim);
+    position: relative;
+}
+
+.terminal-divider::before,
+.terminal-divider::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    width: 40%;
+    height: 1px;
+    background: linear-gradient(
+        to right,
+        transparent,
+        var(--terminal-green-dim),
+        transparent
+    );
+}
+
+.terminal-divider::before { left: 0; }
+.terminal-divider::after { right: 0; }
+
+/* Typography improvements */
 .terminal-text {
     word-wrap: break-word;
     overflow-wrap: break-word;
     white-space: pre-wrap;
+    color: var(--terminal-green);
+    margin-bottom: 0.5rem;
 }
 
-/* Removed glow animation for better readability */
+/* Headers with display font but limited glitch effects */
+h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-family-display);
+    color: var(--terminal-green-bright);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    margin-bottom: 1rem;
+}
 
-/* Terminal prompt styling - Linux style */
+h1 { font-size: 2rem; }
+h2 { font-size: 1.5rem; }
+h3 { font-size: 1.25rem; }
+
+/* Terminal prompt styling with improved Linux-style formatting */
 .terminal-prompt {
     color: var(--terminal-green);
-    margin: 20px 0 10px 0;
-    font-weight: normal;
-    word-wrap: break-word;
+    margin: 1rem 0 0.5rem 0;
+    font-weight: 500;
+    font-family: var(--font-family-mono);
+    display: flex;
+    align-items: center;
+    background: rgba(51, 255, 51, 0.05);
+    padding: 0.5rem;
+    border-left: 3px solid var(--terminal-green);
+    border-radius: 0 4px 4px 0;
 }
 
 .terminal-prompt::before {
     content: '$ ';
     color: var(--terminal-amber);
+    margin-right: 0.5rem;
+    font-weight: bold;
 }
 
-/* Blinking cursor */
+/* Command line styling */
+.terminal-command-line {
+    margin: 0.75rem 0;
+    padding: 0.5rem;
+    background: rgba(51, 255, 51, 0.08);
+    border: 1px solid rgba(51, 255, 51, 0.2);
+    border-radius: 4px;
+}
+
+.terminal-command-line::before {
+    content: 'sourceful@energy:~$ ';
+    color: var(--terminal-amber);
+    font-weight: 500;
+}
+
+/* Subtle cursor animation */
 .cursor {
     display: inline-block;
     background-color: var(--terminal-green);
-    animation: blink 1s infinite;
-    width: 0.8em;
+    width: 0.6em;
     height: 1em;
     margin-left: 2px;
+    animation: blink 1.2s infinite;
+    border-radius: 2px;
 }
 
 @keyframes blink {
@@ -104,252 +203,17 @@ body::before {
     51%, 100% { opacity: 0; }
 }
 
-/* Terminal Session Steps */
-.terminal-session {
-    margin: 20px 0;
-}
-
-.terminal-step {
-    margin: 15px 0;
-}
-
-.terminal-input-line {
-    display: flex;
-    align-items: center;
-    margin: 10px 0;
-    background: rgba(0, 255, 0, 0.05);
-    border: 1px solid #004400;
-    padding: 8px;
-    border-radius: 3px;
-}
-
-.terminal-prompt-char {
-    color: #00ff00;
-    margin-right: 8px;
-    font-weight: bold;
-}
-
-.terminal-text-input {
-    background: transparent;
-    border: none;
-    color: #00ff00;
-    font-family: 'VT323', monospace;
-    font-size: 16px;
-    flex: 1;
-    outline: none;
-    padding: 4px;
-}
-
-.terminal-text-input::placeholder {
-    color: #666666;
-}
-
-.terminal-enter-btn {
-    background: #004400;
-    border: 1px solid #00ff00;
-    color: #00ff00;
-    font-family: 'VT323', monospace;
-    font-size: 14px;
-    padding: 4px 8px;
-    margin-left: 10px;
-    cursor: pointer;
-    border-radius: 2px;
-    transition: all 0.2s ease;
-}
-
-.terminal-enter-btn:hover {
-    background: #006600;
-    box-shadow: 0 0 5px #00ff00;
-}
-
-.terminal-enter-btn:active {
-    background: #00ff00;
-    color: #000000;
-}
-
-/* Form Elements */
-.terminal-form {
-    margin: 20px 0;
-}
-
-.terminal-label {
-    display: block;
-    color: var(--terminal-green);
-    margin: 15px 0 5px 0;
-    text-transform: uppercase;
-}
-
-.terminal-input,
-.terminal-select {
-    background: var(--terminal-bg);
-    border: 1px solid var(--terminal-green);
-    color: var(--terminal-green);
-    font-family: 'VT323', 'Courier New', monospace;
-    font-size: 16px;
-    padding: 8px;
-    width: 100%;
-    max-width: 400px;
-    border-radius: 0;
-    outline: none;
-}
-
-.terminal-input:focus,
-.terminal-select:focus {
-    box-shadow: 0 0 10px var(--terminal-green);
-    border-color: var(--terminal-amber);
-}
-
-.terminal-input::placeholder {
-    color: var(--terminal-gray);
-    opacity: 0.7;
-}
-
-/* File input styling */
-.terminal-file-area {
-    border: 2px dashed var(--terminal-green);
-    padding: 20px;
-    margin: 10px 0;
-    text-align: center;
-    background: rgba(0, 255, 0, 0.05);
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.terminal-file-area:hover {
-    border-color: var(--terminal-amber);
-    background: rgba(255, 170, 0, 0.05);
-    box-shadow: 0 0 20px rgba(255, 170, 0, 0.3);
-}
-
-.terminal-file-area.drag-over {
-    border-color: var(--terminal-amber);
-    background: rgba(255, 170, 0, 0.1);
-    animation: pulse 1s infinite;
-}
-
-@keyframes pulse {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.02); }
-}
-
-/* Submit button */
-.terminal-button {
-    background: var(--terminal-bg);
-    border: 2px solid var(--terminal-green);
-    color: var(--terminal-green);
-    font-family: 'VT323', 'Courier New', monospace;
-    font-size: 18px;
-    padding: 12px 24px;
-    margin: 20px 0;
-    cursor: pointer;
-    text-transform: uppercase;
-    transition: all 0.3s ease;
-    position: relative;
-}
-
-.terminal-button::before {
-    content: '[';
-    margin-right: 5px;
-}
-
-.terminal-button::after {
-    content: ']';
-    margin-left: 5px;
-}
-
-.terminal-button:hover {
-    background: var(--terminal-green);
-    color: var(--terminal-bg);
-    box-shadow: 0 0 20px var(--terminal-green);
-    text-shadow: none;
-}
-
-.terminal-button:active {
-    transform: scale(0.98);
-}
-
-/* Status messages */
-.terminal-success {
-    color: var(--terminal-green);
-    margin: 15px 0;
-    padding: 10px;
-    border: 1px solid var(--terminal-green);
-    background: rgba(0, 255, 0, 0.1);
-    font-size: 1.1em;
-}
-
-.terminal-error {
-    color: var(--terminal-red);
-    margin: 15px 0;
-    padding: 10px;
-    border: 1px solid var(--terminal-red);
-    background: rgba(255, 68, 68, 0.1);
-    font-size: 1.1em;
-    font-weight: bold;
-}
-
-.terminal-info {
-    color: var(--terminal-white);
-    margin: 15px 0;
-    padding: 10px;
-    border: 1px solid var(--terminal-white);
-    background: rgba(255, 255, 255, 0.1);
-    font-size: 1.1em;
-}
-
-/* Progress indicator */
-.terminal-progress {
-    margin: 20px 0;
-    padding: 10px;
-    border: 1px solid var(--terminal-green);
-    background: rgba(0, 255, 0, 0.05);
-}
-
-.terminal-progress-bar {
-    background: var(--terminal-bg);
-    border: 1px solid var(--terminal-green);
-    height: 20px;
-    position: relative;
-    overflow: hidden;
-}
-
-.terminal-progress-fill {
-    background: var(--terminal-green);
-    height: 100%;
-    width: 0%;
-    transition: width 0.3s ease;
-    animation: progressGlow 2s ease-in-out infinite alternate;
-}
-
-@keyframes progressGlow {
-    from { box-shadow: 0 0 5px var(--terminal-green); }
-    to { box-shadow: 0 0 15px var(--terminal-green); }
-}
-
-/* Results display */
-.terminal-results {
-    margin: 30px 0;
-    padding: 20px;
-    border: 1px solid var(--terminal-green);
-    background: rgba(0, 255, 0, 0.05);
-    word-wrap: break-word;
-    overflow-wrap: break-word;
-}
-
-.terminal-results-header {
-    color: var(--terminal-green);
-    font-size: 24px;
-    margin-bottom: 20px;
-    text-align: center;
-}
-
+/* Clean metric display with flexbox layout */
 .terminal-metric {
-    margin: 10px 0;
-    padding: 5px 0;
-    border-bottom: 1px dotted var(--terminal-gray);
     display: flex;
-    flex-wrap: wrap;
     align-items: flex-start;
+    justify-content: space-between;
+    margin: 0.75rem 0;
+    padding: 0.75rem;
+    border-bottom: 1px solid rgba(51, 255, 51, 0.2);
+    background: rgba(51, 255, 51, 0.03);
+    border-radius: 4px;
+    gap: 1rem;
 }
 
 .terminal-metric:last-child {
@@ -358,150 +222,423 @@ body::before {
 
 .terminal-metric-label {
     color: var(--terminal-green);
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
     flex: 0 0 auto;
-    min-width: 250px;
-    margin-right: 20px;
-    word-wrap: break-word;
-    font-size: 1.1em;
+    min-width: 200px;
+    font-size: 0.95em;
 }
 
 .terminal-metric-value {
     color: var(--terminal-white);
-    font-weight: bold;
+    font-weight: 600;
     flex: 1;
+    text-align: right;
     word-wrap: break-word;
     overflow-wrap: break-word;
-    font-size: 1.2em;
+    font-size: 1.1em;
 }
 
-.terminal-negative {
-    color: var(--terminal-red);
+/* Status colors with improved contrast */
+.terminal-negative,
+.terminal-error {
+    color: var(--terminal-red) !important;
     font-weight: bold;
 }
 
-@keyframes warning {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.7; }
+.terminal-success {
+    color: var(--terminal-green-bright);
+    border-color: var(--terminal-green-bright);
+    background: rgba(51, 255, 51, 0.1);
 }
 
-/* ASCII art and decorations */
+.terminal-info {
+    color: var(--terminal-white);
+    border-color: var(--terminal-white);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+.terminal-warning {
+    color: var(--terminal-orange);
+    border-color: var(--terminal-orange);
+    background: rgba(255, 149, 0, 0.1);
+}
+
+/* Terminal session and interactive elements */
+.terminal-session {
+    margin: var(--section-spacing) 0;
+}
+
+.terminal-step {
+    margin: 1rem 0;
+    padding: 1rem;
+    border: 1px solid rgba(51, 255, 51, 0.2);
+    border-radius: 6px;
+    background: rgba(51, 255, 51, 0.02);
+}
+
+.terminal-input-line {
+    display: flex;
+    align-items: center;
+    margin: 1rem 0;
+    background: rgba(51, 255, 51, 0.08);
+    border: 1px solid rgba(51, 255, 51, 0.3);
+    padding: 0.75rem;
+    border-radius: 6px;
+    gap: 0.5rem;
+}
+
+.terminal-prompt-char {
+    color: var(--terminal-amber);
+    font-weight: bold;
+    font-size: 1.1em;
+}
+
+.terminal-text-input {
+    background: transparent;
+    border: none;
+    color: var(--terminal-green);
+    font-family: var(--font-family-mono);
+    font-size: var(--base-font-size);
+    flex: 1;
+    outline: none;
+    padding: 0.5rem;
+    border-radius: 4px;
+}
+
+.terminal-text-input:focus {
+    background: rgba(51, 255, 51, 0.05);
+    box-shadow: 0 0 5px rgba(51, 255, 51, 0.3);
+}
+
+.terminal-text-input::placeholder {
+    color: var(--terminal-gray-dim);
+    font-style: italic;
+}
+
+.terminal-enter-btn {
+    background: var(--terminal-bg);
+    border: 1px solid var(--terminal-green);
+    color: var(--terminal-green);
+    font-family: var(--font-family-mono);
+    font-size: 0.9rem;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    font-weight: 500;
+}
+
+.terminal-enter-btn:hover {
+    background: var(--terminal-green);
+    color: var(--terminal-bg);
+    box-shadow: 0 0 8px rgba(51, 255, 51, 0.4);
+    transform: translateY(-1px);
+}
+
+.terminal-enter-btn:active {
+    transform: translateY(0);
+}
+
+/* Form elements with modern UX */
+.terminal-form {
+    margin: var(--section-spacing) 0;
+    padding: var(--base-padding);
+    border: 1px solid rgba(51, 255, 51, 0.3);
+    border-radius: 6px;
+    background: rgba(51, 255, 51, 0.02);
+}
+
+.terminal-label {
+    display: block;
+    color: var(--terminal-green);
+    margin: 1rem 0 0.5rem 0;
+    text-transform: uppercase;
+    font-weight: 500;
+    letter-spacing: 0.05em;
+    font-size: 0.9rem;
+}
+
+.terminal-input,
+.terminal-select {
+    background: var(--terminal-bg);
+    border: 1px solid var(--terminal-green);
+    color: var(--terminal-green);
+    font-family: var(--font-family-mono);
+    font-size: var(--base-font-size);
+    padding: 0.75rem;
+    width: 100%;
+    max-width: 400px;
+    border-radius: 4px;
+    outline: none;
+    transition: all 0.2s ease;
+}
+
+.terminal-input:focus,
+.terminal-select:focus {
+    box-shadow: 0 0 8px rgba(51, 255, 51, 0.4);
+    border-color: var(--terminal-amber);
+    background: rgba(51, 255, 51, 0.05);
+}
+
+.terminal-input:hover,
+.terminal-select:hover {
+    border-color: var(--terminal-green-bright);
+}
+
+.terminal-input::placeholder {
+    color: var(--terminal-gray-dim);
+    opacity: 0.8;
+    font-style: italic;
+}
+
+/* File upload area with better UX */
+.terminal-file-area {
+    border: 2px dashed var(--terminal-green);
+    padding: 2rem;
+    margin: 1rem 0;
+    text-align: center;
+    background: rgba(51, 255, 51, 0.05);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border-radius: 8px;
+    position: relative;
+}
+
+.terminal-file-area:hover {
+    border-color: var(--terminal-amber);
+    background: rgba(255, 255, 0, 0.08);
+    box-shadow: 0 0 15px rgba(255, 255, 0, 0.2);
+    transform: translateY(-2px);
+}
+
+.terminal-file-area.drag-over {
+    border-color: var(--terminal-amber);
+    background: rgba(255, 255, 0, 0.12);
+    animation: pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse {
+    0%, 100% { transform: scale(1) translateY(-2px); }
+    50% { transform: scale(1.02) translateY(-2px); }
+}
+
+/* Professional terminal button styling */
+.terminal-button {
+    background: var(--terminal-bg);
+    border: 2px solid var(--terminal-green);
+    color: var(--terminal-green);
+    font-family: var(--font-family-mono);
+    font-size: 1rem;
+    font-weight: 500;
+    padding: 0.75rem 1.5rem;
+    margin: 1rem 0.5rem 1rem 0;
+    cursor: pointer;
+    text-transform: uppercase;
+    text-decoration: none;
+    transition: all 0.3s ease;
+    position: relative;
+    border-radius: 4px;
+    letter-spacing: 0.05em;
+    display: inline-block;
+}
+
+.terminal-button::before {
+    content: '[';
+    margin-right: 0.3rem;
+    color: var(--terminal-amber);
+}
+
+.terminal-button::after {
+    content: ']';
+    margin-left: 0.3rem;
+    color: var(--terminal-amber);
+}
+
+.terminal-button:hover {
+    background: var(--terminal-green);
+    color: var(--terminal-bg);
+    box-shadow: 0 0 15px rgba(51, 255, 51, 0.4);
+    transform: translateY(-2px);
+    border-color: var(--terminal-green-bright);
+}
+
+.terminal-button:active {
+    transform: translateY(0);
+    box-shadow: 0 0 8px rgba(51, 255, 51, 0.3);
+}
+
+.terminal-button:focus {
+    outline: 2px solid var(--terminal-amber);
+    outline-offset: 2px;
+}
+
+/* AI Typing Effect Styling */
+#aiExplanationTyping {
+    min-height: 50px;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+}
+
+#aiExplanationTyping #aiCursor {
+    background-color: var(--terminal-green);
+    animation: blink 1s infinite;
+    margin-left: 2px;
+}
+
+/* Fix text indentation issues */
+.terminal-text {
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: pre-wrap;
+    color: var(--terminal-green);
+    margin-bottom: 0.5rem;
+    text-indent: 0; /* Remove any unwanted indentation */
+    margin-left: 0; /* Ensure no left margin */
+    padding-left: 0; /* Ensure no left padding */
+}
+
+/* Progress indicators */
+.terminal-progress {
+    margin: 1.5rem 0;
+    padding: 1rem;
+    border: 1px solid var(--terminal-green);
+    background: rgba(51, 255, 51, 0.05);
+    border-radius: 6px;
+}
+
+.terminal-progress-bar {
+    background: var(--terminal-bg);
+    border: 1px solid var(--terminal-green);
+    height: 20px;
+    position: relative;
+    overflow: hidden;
+    border-radius: 4px;
+}
+
+.terminal-progress-fill {
+    background: linear-gradient(90deg, var(--terminal-green), var(--terminal-green-bright));
+    height: 100%;
+    width: 0%;
+    transition: width 0.5s ease;
+    position: relative;
+}
+
+.terminal-progress-fill::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    right: 0;
+    background: linear-gradient(
+        90deg,
+        transparent 0%,
+        rgba(255, 255, 255, 0.2) 50%,
+        transparent 100%
+    );
+    animation: shine 2s ease-in-out infinite;
+}
+
+@keyframes shine {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+}
+
+/* Results display with improved layout */
+.terminal-results {
+    margin: var(--section-spacing) 0;
+    padding: var(--base-padding);
+    border: 2px solid var(--terminal-green);
+    background: rgba(51, 255, 51, 0.05);
+    border-radius: 8px;
+    position: relative;
+}
+
+.terminal-results::before {
+    content: '[ ANALYSIS RESULTS ]';
+    position: absolute;
+    top: -0.75rem;
+    left: 1rem;
+    background: var(--terminal-bg);
+    color: var(--terminal-amber);
+    padding: 0 0.5rem;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-transform: uppercase;
+}
+
+.terminal-results-header {
+    color: var(--terminal-green-bright);
+    font-size: 1.5rem;
+    margin-bottom: var(--base-padding);
+    text-align: center;
+    font-family: var(--font-family-display);
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+}
+
+/* ASCII art and decorative elements */
 .terminal-ascii {
     color: var(--terminal-green-dim);
-    font-size: 14px;
-    line-height: 1;
-    margin: 20px 0;
+    font-family: var(--font-family-display);
+    font-size: 0.8rem;
+    line-height: 1.1;
+    margin: var(--base-padding) 0;
     text-align: center;
     white-space: pre;
+    overflow-x: auto;
 }
 
-.terminal-divider {
-    color: var(--terminal-green-dim);
-    margin: 20px 0;
+.terminal-logo {
+    color: var(--terminal-green);
+    font-family: var(--font-family-display);
+    font-size: 0.7rem;
+    line-height: 1;
+    margin: var(--base-padding) 0;
     text-align: center;
+    white-space: pre;
+    overflow-x: auto;
 }
 
-.terminal-divider::before,
-.terminal-divider::after {
-    content: '═══════════════════════════════════════';
-    display: block;
+/* Subtle flicker effect only for logos */
+.terminal-flicker {
+    animation: flicker 4s linear infinite;
 }
 
-/* Mobile responsiveness */
-@media (max-width: 768px) {
-    body {
-        font-size: 16px;
+@keyframes flicker {
+    0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+        opacity: 1;
     }
-    
-    .terminal-container {
-        max-width: 100%;
-        padding: 15px;
-    }
-    
-    .terminal-input,
-    .terminal-select {
-        font-size: 16px;
-        max-width: 100%;
-    }
-    
-    .terminal-button {
-        width: 100%;
-        font-size: 16px;
-    }
-    
-    .terminal-metric {
-        flex-direction: column;
-    }
-    
-    .terminal-metric-label {
-        min-width: auto;
-        width: 100%;
-        margin-right: 0;
-        margin-bottom: 5px;
-    }
-    
-    .terminal-metric-value {
-        width: 100%;
+    20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
+        opacity: 0.85;
     }
 }
 
-@media (max-width: 480px) {
-    body {
-        font-size: 14px;
-    }
-    
-    .terminal-container {
-        padding: 10px;
-        max-width: 100%;
-    }
-    
-    .terminal-results-header {
-        font-size: 20px;
-    }
-    
-    .terminal-metric-label {
-        width: 100%;
-    }
-    
-    .terminal-text {
-        font-size: 14px;
-        line-height: 1.3;
-    }
-}
-
-/* Remove all Bootstrap and modern elements */
-.navbar,
-.hero-section,
-.features-section,
-.footer,
-.card,
-.btn:not(.terminal-button),
-.badge,
-.alert:not(.terminal-success):not(.terminal-error):not(.terminal-info) {
-    display: none !important;
-}
-
-/* Hide any remaining modern UI elements */
-.container,
-.row,
-.col-*,
-.d-flex,
-.text-center,
-.bg-*:not(.terminal-bg) {
-    background: none !important;
-    padding: 0 !important;
-    margin: 0 !important;
-    border: none !important;
-    box-shadow: none !important;
+/* System info display */
+.terminal-system-info {
+    color: var(--terminal-green-dim);
+    font-size: 0.9rem;
+    margin-bottom: var(--base-padding);
+    text-align: center;
+    padding: 1rem;
+    background: rgba(51, 255, 51, 0.03);
+    border: 1px solid rgba(51, 255, 51, 0.2);
+    border-radius: 6px;
 }
 
 /* Loading animation */
 .terminal-loading {
     color: var(--terminal-amber);
+    font-weight: 500;
 }
 
 .terminal-loading::after {
     content: '';
-    animation: dots 1.5s steps(4, end) infinite;
+    animation: dots 1.8s steps(4, end) infinite;
 }
 
 @keyframes dots {
@@ -511,70 +648,210 @@ body::before {
     80%, 100% { content: '...'; }
 }
 
-/* System info display */
-.terminal-system-info {
-    color: var(--terminal-green);
-    font-size: 16px;
-    margin-bottom: 20px;
-    text-align: center;
-}
-
-/* Command prompt style - Linux style */
-.terminal-command-line {
-    margin: 10px 0;
-}
-
-.terminal-command-line::before {
-    content: 'sourceful@energy:~$ ';
-    color: var(--terminal-amber);
-}
-
-/* Retro table styling for results */
+/* Table styling for structured data */
 .terminal-table {
     width: 100%;
     border: 1px solid var(--terminal-green);
     border-collapse: collapse;
-    margin: 20px 0;
+    margin: var(--base-padding) 0;
+    background: rgba(51, 255, 51, 0.02);
+    border-radius: 6px;
+    overflow: hidden;
 }
 
 .terminal-table th,
 .terminal-table td {
-    border: 1px solid var(--terminal-green);
-    padding: 8px;
+    border: 1px solid rgba(51, 255, 51, 0.3);
+    padding: 0.75rem;
     text-align: left;
     color: var(--terminal-green);
 }
 
 .terminal-table th {
-    background: rgba(0, 255, 0, 0.1);
+    background: rgba(51, 255, 51, 0.1);
     color: var(--terminal-amber);
     text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    font-size: 0.9rem;
 }
 
 .terminal-table tr:hover {
-    background: rgba(0, 255, 0, 0.05);
+    background: rgba(51, 255, 51, 0.08);
 }
 
-/* Special effects */
-.terminal-flicker {
-    animation: flicker 3s linear infinite;
+.terminal-table tr:nth-child(even) {
+    background: rgba(51, 255, 51, 0.02);
 }
 
-@keyframes flicker {
-    0%, 19.999%, 22%, 62.999%, 64%, 64.999%, 70%, 100% {
+/* Responsive design improvements */
+@media (max-width: 768px) {
+    :root {
+        --base-font-size: 14px;
+        --container-max-width: 95vw;
+        --base-padding: 1rem;
+        --section-spacing: 1.5rem;
+    }
+    
+    .terminal-container {
+        padding: 1rem;
+    }
+    
+    .terminal-metric {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+    
+    .terminal-metric-label {
+        min-width: auto;
+        width: 100%;
+    }
+    
+    .terminal-metric-value {
+        text-align: left;
+        width: 100%;
+    }
+    
+    .terminal-button {
+        width: 100%;
+        margin: 0.5rem 0;
+        text-align: center;
+    }
+    
+    .terminal-ascii,
+    .terminal-logo {
+        font-size: 0.6rem;
+        overflow-x: auto;
+    }
+    
+    .terminal-table {
+        font-size: 0.85rem;
+    }
+    
+    .terminal-table th,
+    .terminal-table td {
+        padding: 0.5rem;
+    }
+}
+
+@media (max-width: 480px) {
+    :root {
+        --base-font-size: 13px;
+        --base-padding: 0.75rem;
+    }
+    
+    .terminal-results-header {
+        font-size: 1.25rem;
+    }
+    
+    .terminal-system-info {
+        font-size: 0.8rem;
+    }
+    
+    .terminal-ascii,
+    .terminal-logo {
+        font-size: 0.5rem;
+    }
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    :root {
+        --terminal-green: #00FF00;
+        --terminal-green-bright: #00FF00;
+        --terminal-red: #FF0000;
+        --terminal-amber: #FFFF00;
+    }
+    
+    .terminal-section,
+    .terminal-step,
+    .terminal-results {
+        border-width: 2px;
+    }
+    
+    .terminal-button {
+        border-width: 3px;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+    }
+    
+    .terminal-flicker {
+        animation: none;
+    }
+    
+    .cursor {
+        animation: none;
         opacity: 1;
     }
-    20%, 21.999%, 63%, 63.999%, 65%, 69.999% {
-        opacity: 0.4;
+}
+
+/* Print styles */
+@media print {
+    body {
+        background: white;
+        color: black;
+    }
+    
+    body::before {
+        display: none;
+    }
+    
+    .terminal-container {
+        max-width: none;
+        margin: 0;
+        padding: 1rem;
+        box-shadow: none;
+    }
+    
+    .terminal-button {
+        display: none;
+    }
+    
+    .terminal-ascii,
+    .terminal-logo {
+        display: none;
     }
 }
 
-/* Sourceful Energy logo in ASCII */
-.terminal-logo {
-    color: var(--terminal-green);
-    font-size: 12px;
-    line-height: 1;
-    margin: 20px 0;
-    text-align: center;
-    white-space: pre;
+/* Focus management for keyboard navigation */
+.terminal-button:focus-visible,
+.terminal-input:focus-visible,
+.terminal-text-input:focus-visible {
+    outline: 2px solid var(--terminal-amber);
+    outline-offset: 2px;
+}
+
+/* Remove Bootstrap and modern UI elements */
+.navbar,
+.hero-section,
+.features-section,
+.footer,
+.card:not(.terminal-section),
+.btn:not(.terminal-button),
+.badge:not(.terminal-badge),
+.alert:not(.terminal-success):not(.terminal-error):not(.terminal-info):not(.terminal-warning) {
+    display: none !important;
+}
+
+/* Ensure clean terminal aesthetic */
+.container:not(.terminal-container),
+.row,
+.col-*,
+.d-flex:not(.terminal-metric),
+.text-center:not(.terminal-ascii):not(.terminal-logo),
+.bg-*:not(.terminal-bg) {
+    background: transparent !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
 }

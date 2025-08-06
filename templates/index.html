@@ -34,21 +34,25 @@
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for category, message in messages %}
-                    <div class="terminal-{{ 'error' if category == 'error' else 'success' if category == 'success' else 'info' }}">
-                        {{ category.upper() }}: {{ message }}
-                    </div>
-                {% endfor %}
+                <div class="terminal-section">
+                    {% for category, message in messages %}
+                        <div class="terminal-{{ 'error' if category == 'error' else 'success' if category == 'success' else 'info' }}">
+                            <strong>{{ category.upper() }}:</strong> {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
             {% endif %}
         {% endwith %}
 
         <!-- Main Terminal Interface -->
-        <div class="terminal-prompt terminal-text">
-            ./energy_analyzer --mode=interactive --verbose
-        </div>
+        <div class="terminal-section">
+            <div class="terminal-prompt">
+                ./energy_analyzer --mode=interactive --verbose
+            </div>
 
-        <div class="terminal-command-line terminal-text">
-            System ready. Upload production data for negative price analysis...
+            <div class="terminal-command-line">
+                System ready. Upload production data for negative price analysis...
+            </div>
         </div>
 
         <!-- Upload Form -->
@@ -73,12 +77,12 @@
                     <input type="file" id="file" name="file" accept=".csv" required style="display: none;" form="uploadForm">
                     <div class="upload-content">
                         DRA OCH SLÄPP DIN CSV-FIL HÄR<br>
-                        ELLER <span style="color: #ffaa00; cursor: pointer;" onclick="document.getElementById('file').click()">KLICKA FÖR ATT VÄLJA FIL</span><br>
-                        <small style="color: #666666;">MAX FILSTORLEK: 16MB</small>
+                        ELLER <span style="color: var(--terminal-orange); cursor: pointer;" onclick="document.getElementById('file').click()">KLICKA FÖR ATT VÄLJA FIL</span><br>
+                        <small style="color: var(--terminal-gray-dim);">MAX FILSTORLEK: 16MB</small>
                     </div>
                     <div class="file-info" style="display: none;">
-                        FIL LADDAD: <span id="fileName" style="color: #ffaa00;"></span><br>
-                        STORLEK: <span id="fileSize" style="color: #666666;"></span>
+                        FIL LADDAD: <span id="fileName" style="color: var(--terminal-orange);"></span><br>
+                        STORLEK: <span id="fileSize" style="color: var(--terminal-gray-dim);"></span>
                     </div>
                 </div>
             </div>
@@ -86,15 +90,15 @@
             <!-- Step 2: Email Terminal Prompt (Hidden initially) -->
             <div id="emailStep" class="terminal-step" style="display: none;">
                 <div class="terminal-prompt">sourceful@energy-analyzer:~$ echo "FIL MOTTAGEN"</div>
-                <div class="terminal-command-line terminal-text">
+                <div class="terminal-text">
                     FIL MOTTAGEN. FÖR ANALYS SKRIV IN DIN E-POST ADRESS:
                 </div>
                 <div class="terminal-input-line">
                     <span class="terminal-prompt-char">$</span>
                     <input type="email" id="emailInput" class="terminal-text-input" placeholder="din.epost@exempel.se" autocomplete="email">
-                    <button type="button" id="emailEnterBtn" class="terminal-enter-btn">[ENTER]</button>
+                    <button type="button" id="emailEnterBtn" class="terminal-enter-btn">ENTER</button>
                 </div>
-                <div class="terminal-text" style="color: #666666; margin-top: 10px; font-size: 12px;">
+                <div class="terminal-text" style="color: var(--terminal-gray-dim); margin-top: 1rem; font-size: 0.85rem;">
                     Vi sparar din e-post för att skicka analysen och framtida uppdateringar.
                 </div>
             </div>
@@ -102,28 +106,30 @@
             <!-- Step 3: Processing (Hidden initially) -->
             <div id="processingStep" class="terminal-step" style="display: none;">
                 <div class="terminal-prompt">sourceful@energy-analyzer:~$ ./run_analysis.sh --verbose</div>
-                <div class="terminal-command-line terminal-text">
+                <div class="terminal-text">
                     STARTAR ANALYS<span class="terminal-loading"></span>
                 </div>
-                <div class="terminal-progress-bar">
-                    <div class="terminal-progress-fill" id="progressFill"></div>
+                <div class="terminal-progress">
+                    <div class="terminal-progress-bar">
+                        <div class="terminal-progress-fill" id="progressFill"></div>
+                    </div>
+                    <div class="terminal-text" id="progressText">LADDAR ELPRISER...</div>
                 </div>
-                <div class="terminal-text" id="progressText">LADDAR PRISDATA FRÅN ENTSO-E...</div>
             </div>
         </div>
 
         <!-- Terminal Footer -->
         <div class="terminal-divider"></div>
         
-        <div class="terminal-command-line terminal-text" style="text-align: center; color: #666666;">
+        <div class="terminal-text" style="text-align: center; color: var(--terminal-gray-dim);">
             SOURCEFUL ENERGY ZAP - DIN ENERGIOPTIMERING BÖRJAR HÄR
         </div>
 
-        <div class="terminal-text" style="text-align: center; margin-top: 20px;">
+        <div class="terminal-text" style="text-align: center; margin-top: 1.5rem;">
             <span class="cursor"></span>
         </div>
         
-        <div class="terminal-text" style="text-align: center; margin-top: 15px; color: #555555; font-size: 12px;">
+        <div class="terminal-text" style="text-align: center; margin-top: 1rem; color: var(--terminal-gray-dim); font-size: 0.85rem;">
             Sourceful Labs AB • Made in Kalmar, Sweden • Sourceful Energy™
         </div>
     </div>
@@ -234,25 +240,27 @@
             // Start progress animation
             let progress = 0;
             const progressMessages = [
-                'LADDAR PRISDATA FRÅN ENTSO-E...',
+                'LADDAR ELPRISER...',
+                'HÄMTAR MARKNADSDATA...',
                 'ANALYSERAR PRODUKTIONSDATA...',
                 'BERÄKNAR NEGATIVA PRISER...',
+                'KORRELERAR PRIS & PRODUKTION...',
                 'GENERERAR AI-FÖRKLARING...',
                 'SLUTFÖR ANALYS...'
             ];
             let messageIndex = 0;
             
             const progressInterval = setInterval(() => {
-                progress += Math.random() * 15;
+                progress += Math.random() * 8; // Långsammare progression (från 15 till 8)
                 if (progress >= 95) progress = 95;
                 progressFill.style.width = progress + '%';
                 
-                // Update progress message
-                if (progress > (messageIndex + 1) * 20 && messageIndex < progressMessages.length - 1) {
+                // Update progress message - längre mellan meddelanden
+                if (progress > (messageIndex + 1) * 14 && messageIndex < progressMessages.length - 1) {
                     messageIndex++;
                     progressText.textContent = progressMessages[messageIndex];
                 }
-            }, 300);
+            }, 500); // Längre intervall (från 300ms till 500ms)
 
             // Submit form after animation
             setTimeout(() => {
@@ -262,7 +270,7 @@
                 
                 // Submit the actual form
                 uploadForm.submit();
-            }, 3000);
+            }, 5000); // Längre tid (från 3000ms till 5000ms)
         }
 
         // Email enter button click

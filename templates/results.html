@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ANALYSRESULTAT - SOURCEFUL ENERGY TERMINAL</title>
+    <title>ANALYSRESULTAT - SOURCEFUL ENERGY                🔔 <strong>EFFEKTTARIFF-NOTISER</strong> - Varningar för höga effektavgifter<br><br>TERMINAL</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='css/terminal.css') }}">
 </head>
 <body>
@@ -19,11 +19,13 @@
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
             {% if messages %}
-                {% for category, message in messages %}
-                    <div class="terminal-{{ 'error' if category == 'error' else 'success' if category == 'success' else 'info' }}">
-                        {{ category.upper() }}: {{ message }}
-                    </div>
-                {% endfor %}
+                <div class="terminal-section">
+                    {% for category, message in messages %}
+                        <div class="terminal-{{ 'error' if category == 'error' else 'success' if category == 'success' else 'info' }}">
+                            <strong>{{ category.upper() }}:</strong> {{ message }}
+                        </div>
+                    {% endfor %}
+                </div>
             {% endif %}
         {% endwith %}
 
@@ -42,185 +44,192 @@
 
         <!-- Analysis Period Info -->
         {% if results and results.metadata %}
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ ls -la /proc/energy/analysis_period</div>
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">START_DATE:</span>
-            <span class="terminal-metric-value">{{ results.metadata.start_date[:10] }}</span>
-        </div>
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">END_DATE:</span>
-            <span class="terminal-metric-value">{{ results.metadata.end_date[:10] }}</span>
-        </div>
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">AREA_CODE:</span>
-            <span class="terminal-metric-value">{{ results.metadata.area_code }}</span>
-        </div>
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">CURRENCY:</span>
-            <span class="terminal-metric-value">{{ results.metadata.currency }}</span>
+        <div class="terminal-section">
+            <div class="terminal-prompt">sourceful@energy-analyzer:~$ ls -la /proc/energy/analysis_period</div>
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">START_DATE:</span>
+                <span class="terminal-metric-value">{{ results.metadata.start_date[:10] }}</span>
+            </div>
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">END_DATE:</span>
+                <span class="terminal-metric-value">{{ results.metadata.end_date[:10] }}</span>
+            </div>
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">AREA_CODE:</span>
+                <span class="terminal-metric-value">{{ results.metadata.area_code }}</span>
+            </div>
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">CURRENCY:</span>
+                <span class="terminal-metric-value">{{ results.metadata.currency }}</span>
+            </div>
         </div>
         {% endif %}
 
         <!-- AI Explanation Section -->
         {% if results and results.ai_explanation %}
-        <div class="terminal-divider"></div>
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /var/log/energy/ai_analysis.log</div>
-        <div class="terminal-text" style="background: rgba(0, 255, 0, 0.1); padding: 20px; margin: 15px 0; border-left: 4px solid #00ff00; color: #00ff00; font-size: 18px; line-height: 1.7;">
-            {{ results.ai_explanation | safe }}
+        <div class="terminal-section">
+            <div class="terminal-prompt">sourceful@energy-analyzer:~$ tail -f /var/log/energy/ai_analysis.log</div>
+            <div class="terminal-text" style="background: rgba(51, 255, 51, 0.1); padding: 1.5rem; margin: 1rem 0; border-left: 4px solid var(--terminal-green); border-radius: 6px;">
+                <div id="aiExplanationTyping" style="color: var(--terminal-green); font-size: 1rem; line-height: 1.7; font-family: var(--font-family-mono); white-space: pre-wrap;">
+                    <span class="cursor" id="aiCursor"></span>
+                </div>
+                <div id="aiExplanationFull" style="display: none;">{{ results.ai_explanation | safe }}</div>
+            </div>
         </div>
         {% endif %}
-
-        <div class="terminal-divider"></div>
 
         <!-- Key Metrics -->
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /proc/energy/metrics</div>
-        
         {% if results and results.analysis %}
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">TOTAL_PRODUCTION:</span>
-            <span class="terminal-metric-value">{{ "%.2f"|format(results.analysis.production_total) }} kWh</span>
-        </div>
-        
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">AVG_PRICE:</span>
-            <span class="terminal-metric-value">{{ "%.4f"|format((results.analysis.price_mean_eur_mwh * results.metadata.currency_rate) / 1000) }} {{ results.metadata.currency }}/kWh</span>
-        </div>
-        
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">TOTAL_REVENUE:</span>
-            <span class="terminal-metric-value">{{ "%.2f"|format(results.analysis.total_export_value_sek) }} SEK</span>
-        </div>
-        
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">AVG_REVENUE:</span>
-            <span class="terminal-metric-value">{{ "%.4f"|format(results.analysis.total_export_value_sek / results.analysis.production_total) }} SEK/kWh</span>
-        </div>
-
-        <div class="terminal-divider"></div>
-
-        <!-- Negative Price Analysis -->
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ grep -E "NEGATIVE|LOSS" /var/log/energy/price_analysis.log</div>
-        
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">PRODUCTION_NEG_PRICES:</span>
-            <span class="terminal-metric-value terminal-error">{{ "%.2f"|format(results.analysis.production_during_negative_prices) }} kWh ({{ "%.1f"|format((results.analysis.production_during_negative_prices / results.analysis.production_total) * 100) }}% av total)</span>
-        </div>
-        
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">NEGATIVE_PRICE_HOURS:</span>
-            <span class="terminal-metric-value">{{ results.analysis.negative_price_hours }} av {{ results.analysis.total_hours }} timmar ({{ "%.1f"|format((results.analysis.negative_price_hours / results.analysis.total_hours) * 100) }}%)</span>
-        </div>
-        
-        {% if results.analysis.negative_price_hours > 0 %}
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">DIRECT_LOSS:</span>
-            <span class="terminal-metric-value terminal-error">{{ "%.2f"|format(results.analysis.negative_export_cost_abs_sek) }} {{ results.metadata.currency }}</span>
-        </div>
-        {% endif %}
-
-        <div class="terminal-divider"></div>
-
-        <!-- Price Statistics -->
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /proc/energy/price_stats</div>
-        
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">MAX_PRICE:</span>
-            <span class="terminal-metric-value">{{ "%.4f"|format((results.analysis.price_max_eur_mwh * results.metadata.currency_rate) / 1000) }} {{ results.metadata.currency }}/kWh</span>
-        </div>
-        
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">MIN_PRICE:</span>
-            <span class="terminal-metric-value">{{ "%.4f"|format((results.analysis.price_min_eur_mwh * results.metadata.currency_rate) / 1000) }} {{ results.metadata.currency }}/kWh</span>
-        </div>
-        
-        <div class="terminal-metric">
-            <span class="terminal-metric-label">PRICE_VOLATILITY:</span>
-            <span class="terminal-metric-value">{{ "%.4f"|format(results.analysis.price_volatility_std) }} SEK/kWh</span>
-        </div>
-
-        <div class="terminal-divider"></div>
-
-        <!-- ASCII Negative Price Chart -->
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /proc/negative_prices/production_analysis</div>
-        
-        <div class="terminal-text" style="font-family: 'VT323', monospace; font-size: 20px; line-height: 1.6; margin: 20px 0; background: rgba(0, 255, 0, 0.05); padding: 25px; border: 2px solid #004400;">
-            <div id="negativePriceChart" style="white-space: pre-wrap; word-wrap: break-word; color: #00ff00; overflow-wrap: break-word; text-shadow: 0 0 3px currentColor;">
-                Loading production analysis from /proc/energy/negative_prices...
+        <div class="terminal-section">
+            <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /proc/energy/metrics</div>
+            
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">TOTAL_PRODUCTION:</span>
+                <span class="terminal-metric-value">{{ "%.2f"|format(results.analysis.production_total) }} kWh</span>
+            </div>
+            
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">AVG_PRICE:</span>
+                <span class="terminal-metric-value">{{ "%.4f"|format((results.analysis.price_mean_eur_mwh * results.metadata.currency_rate) / 1000) }} {{ results.metadata.currency }}/kWh</span>
+            </div>
+            
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">TOTAL_REVENUE:</span>
+                <span class="terminal-metric-value">{{ "%.2f"|format(results.analysis.total_export_value_sek) }} SEK</span>
+            </div>
+            
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">AVG_REVENUE:</span>
+                <span class="terminal-metric-value">{{ "%.4f"|format(results.analysis.total_export_value_sek / results.analysis.production_total) }} SEK/kWh</span>
             </div>
         </div>
 
-        <div class="terminal-text" style="font-size: 16px; color: #888888; margin-bottom: 20px;">
-            # LEGEND: █ = NEGATIVA PRISER, ░ = POSITIVA PRISER
+        <!-- Negative Price Analysis -->
+        <div class="terminal-section">
+            <div class="terminal-prompt">sourceful@energy-analyzer:~$ grep -E "NEGATIVE|LOSS" /var/log/energy/price_analysis.log</div>
+            
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">PRODUCTION_NEG_PRICES:</span>
+                <span class="terminal-metric-value terminal-error">{{ "%.2f"|format(results.analysis.production_during_negative_prices) }} kWh ({{ "%.1f"|format((results.analysis.production_during_negative_prices / results.analysis.production_total) * 100) }}% av total)</span>
+            </div>
+            
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">NEGATIVE_PRICE_HOURS:</span>
+                <span class="terminal-metric-value">{{ results.analysis.negative_price_hours }} av {{ results.analysis.total_hours }} timmar ({{ "%.1f"|format((results.analysis.negative_price_hours / results.analysis.total_hours) * 100) }}%)</span>
+            </div>
+            
+            {% if results.analysis.negative_price_hours > 0 %}
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">DIRECT_LOSS:</span>
+                <span class="terminal-metric-value terminal-error">{{ "%.2f"|format(results.analysis.negative_export_cost_abs_sek) }} {{ results.metadata.currency }}</span>
+            </div>
+            {% endif %}
         </div>
 
+        <!-- Price Statistics -->
+        <div class="terminal-section">
+            <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /proc/energy/price_stats</div>
+            
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">MAX_PRICE:</span>
+                <span class="terminal-metric-value">{{ "%.4f"|format((results.analysis.price_max_eur_mwh * results.metadata.currency_rate) / 1000) }} {{ results.metadata.currency }}/kWh</span>
+            </div>
+            
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">MIN_PRICE:</span>
+                <span class="terminal-metric-value">{{ "%.4f"|format((results.analysis.price_min_eur_mwh * results.metadata.currency_rate) / 1000) }} {{ results.metadata.currency }}/kWh</span>
+            </div>
+            
+            <div class="terminal-metric">
+                <span class="terminal-metric-label">PRICE_VOLATILITY:</span>
+                <span class="terminal-metric-value">{{ "%.4f"|format(results.analysis.price_volatility_std) }} SEK/kWh</span>
+            </div>
+        </div>
         {% endif %}
+
+        <!-- ASCII Negative Price Chart -->
+        <div class="terminal-section">
+            <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /proc/negative_prices/production_analysis</div>
+            
+            <div class="terminal-text" style="font-family: var(--font-family-display); font-size: 1.1rem; line-height: 1.6; margin: 1rem 0; background: rgba(51, 255, 51, 0.05); padding: 1.5rem; border: 2px solid rgba(51, 255, 51, 0.3); border-radius: 6px;">
+                <div id="negativePriceChart" style="white-space: pre-wrap; word-wrap: break-word; color: var(--terminal-green); overflow-wrap: break-word;">
+                    Loading production analysis from /proc/energy/negative_prices...
+                </div>
+            </div>
+
+            <div class="terminal-text" style="font-size: 0.9rem; color: var(--terminal-gray-dim); margin-bottom: 1rem;">
+                # LEGEND: █ = NEGATIVA PRISER, ░ = POSITIVA PRISER
+            </div>
+        </div>
 
         <!-- Warning if significant negative prices -->
         {% if results and results.analysis and results.analysis.negative_price_hours > 0 and (results.analysis.negative_price_hours / results.analysis.total_hours) > 0.05 %}
-        <div class="terminal-error" style="padding: 15px; margin: 20px 0;">
-            ⚠️  WARNING: SIGNIFICANT NEGATIVE PRICES DETECTED ⚠️<br><br>
-            Din anläggning producerade under {{ "%.1f"|format((results.analysis.negative_price_hours / results.analysis.total_hours) * 100) }}% av tiden när elpriserna var negativa.<br>
-            Detta resulterade i en förlust på {{ "%.2f"|format(results.analysis.negative_export_cost_abs_sek) }} SEK.<br><br>
-            RECOMMENDATION: Överväg batterilager eller produktionsstyrning.
+        <div class="terminal-section">
+            <div class="terminal-error" style="padding: 1.5rem; margin: 1rem 0; border-radius: 6px;">
+                <strong>⚠️  WARNING: SIGNIFICANT NEGATIVE PRICES DETECTED ⚠️</strong><br><br>
+                Din anläggning producerade under {{ "%.1f"|format((results.analysis.negative_price_hours / results.analysis.total_hours) * 100) }}% av tiden när elpriserna var negativa.<br>
+                Detta resulterade i en förlust på {{ "%.2f"|format(results.analysis.negative_export_cost_abs_sek) }} SEK.<br><br>
+                <strong>RECOMMENDATION:</strong> Överväg batterilager eller produktionsstyrning.
+            </div>
         </div>
         {% endif %}
-
-        <div class="terminal-divider"></div>
 
         <!-- Sourceful Energy Pitch -->
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /opt/sourceful/marketing/zap_info.txt</div>
-        
-        <div class="terminal-text" style="background: rgba(255, 170, 0, 0.1); padding: 15px; margin: 10px 0; border-left: 3px solid #ffaa00;">
-            <strong style="color: #ffaa00;">SOURCEFUL ENERGY ZAP™</strong> kan hjälpa dig maximera dina intäkter genom:<br><br>
+        <div class="terminal-section">
+            <div class="terminal-prompt">sourceful@energy-analyzer:~$ cat /opt/sourceful/marketing/zap_info.txt</div>
             
-            🔋 <strong>INTELLIGENT BATTERILAGER</strong> - Lagra energi när priserna är negativa eller låga<br>
-            📊 <strong>PREDIKTIV ANALYS</strong> - Förutse prisfall och optimera produktion<br>
-            ⚡ <strong>AUTOMATISK STYRNING</strong> - Släng av produktionen när det kostar pengar<br>
-            💰 <strong>INTÄKTSOPTIMERING</strong> - Sälj din lagrade energi när priserna är höga<br><br>
-            
-            {% if results and results.analysis and results.analysis.negative_export_cost_abs_sek and results.analysis.negative_export_cost_abs_sek > 100 %}
-            <span style="color: #00ff00;">POTENTIAL SAVINGS: {{ "%.0f"|format(results.analysis.negative_export_cost_abs_sek) }} SEK/år med ZAP™</span><br>
-            {% endif %}
-            
-            <span style="color: #666666;">Kontakta oss för en kostnadsfri konsultation: info@sourceful.energy</span><br>
-            <span style="color: #555555; font-size: 12px;">Sourceful Labs AB - Open Source Energy Solutions</span>
+            <div class="terminal-text" style="background: rgba(255, 149, 0, 0.1); padding: 1.5rem; margin: 1rem 0; border-left: 3px solid var(--terminal-orange); border-radius: 6px; white-space: pre-line;">
+                <strong style="color: var(--terminal-orange);">SOURCEFUL ENERGY ZAP™</strong> kan skydda dig mot negativa elpriser genom:<br><br>
+                
+                ⚡ <strong>PRODUKTIONSSTYRNING</strong> - Stäng av solcellerna när det kostar pengar<br>
+                📊 <strong>PREDIKTIV ANALYS</strong> - Förutse prisfall och optimera produktion<br>
+                📈 <strong>REALTIDSDATA P1</strong> - Live data från din elmätare<br>
+                � <strong>EFFEKTTARIFF-NOTISER</strong> - Varningar för höga effektavgifter<br><br>
+                
+                {% if results and results.analysis and results.analysis.negative_export_cost_abs_sek and results.analysis.negative_export_cost_abs_sek > 100 %}
+                <span style="color: var(--terminal-green);">POTENTIAL SAVINGS: {{ "%.0f"|format(results.analysis.negative_export_cost_abs_sek) }} SEK/år med ZAP™</span><br>
+                {% endif %}
+                
+                <span style="color: var(--terminal-gray-dim);">Läs mer: info@sourceful.energy</span><br>
+                <span style="color: var(--terminal-gray-dim); font-size: 0.85rem;">Sourceful Labs AB - Open Source Energy Solutions</span>
+            </div>
         </div>
-
-        <div class="terminal-divider"></div>
 
         <!-- Actions -->
-        <div class="terminal-prompt">sourceful@energy-analyzer:~$ ls /usr/bin/energy_tools</div>
-        <div style="margin: 20px 0;">
-            <a href="/" class="terminal-button" style="display: inline-block; text-decoration: none; margin-right: 20px;">
-                NEW_ANALYSIS
-            </a>
-            <a href="/status" class="terminal-button" style="display: inline-block; text-decoration: none; margin-right: 20px;">
-                SYSTEM_STATUS
-            </a>
-            <a href="#" onclick="window.print()" class="terminal-button" style="display: inline-block; text-decoration: none;">
-                PRINT_REPORT
-            </a>
+        <div class="terminal-section">
+            <div class="terminal-prompt">sourceful@energy-analyzer:~$ ls /usr/bin/energy_tools</div>
+            <div style="margin: 1.5rem 0; display: flex; flex-wrap: wrap; gap: 1rem;">
+                <a href="/" class="terminal-button">
+                    NEW_ANALYSIS
+                </a>
+                <a href="/status" class="terminal-button">
+                    SYSTEM_STATUS
+                </a>
+                <a href="#" onclick="window.print()" class="terminal-button">
+                    PRINT_REPORT
+                </a>
+                
+                <!-- Data Download Option -->
+                {% if results and results.metadata and results.metadata.session_id %}
+                <a href="/download/{{ results.metadata.session_id }}" class="terminal-button">
+                    DOWNLOAD_RAW_DATA
+                </a>
+                {% endif %}
+            </div>
         </div>
-
-        <!-- Data Download Option -->
-        {% if results and results.metadata and results.metadata.session_id %}
-        <div style="margin: 20px 0;">
-            <a href="/download/{{ results.metadata.session_id }}" class="terminal-button" style="display: inline-block; text-decoration: none;">
-                DOWNLOAD_RAW_DATA (CSV)
-            </a>
-        </div>
-        {% endif %}
 
         <!-- Terminal Footer -->
-        <div class="terminal-command-line terminal-text" style="text-align: center; color: #666666; margin-top: 40px;">
+        <div class="terminal-divider"></div>
+        
+        <div class="terminal-text" style="text-align: center; color: var(--terminal-gray-dim); margin-top: 2rem;">
             Analysis completed - Sourceful Energy Zap daemon ready for next task
         </div>
 
-        <div class="terminal-text" style="text-align: center; margin-top: 20px; color: #555555; font-size: 12px;">
+        <div class="terminal-text" style="text-align: center; margin-top: 1rem; color: var(--terminal-gray-dim); font-size: 0.85rem;">
             Sourceful Labs AB • Open Source Energy Solutions • GNU/Linux Compatible
         </div>
 
-        <div class="terminal-text" style="text-align: center; margin-top: 20px;">
+        <div class="terminal-text" style="text-align: center; margin-top: 1.5rem;">
             <span class="cursor"></span>
         </div>
     </div>
@@ -233,6 +242,72 @@
             setInterval(() => {
                 cursor.style.opacity = cursor.style.opacity === '0' ? '1' : '0';
             }, 500);
+        }
+
+        // AI Explanation Typing Effect
+        function typeAIExplanation() {
+            const typingElement = document.getElementById('aiExplanationTyping');
+            const fullTextElement = document.getElementById('aiExplanationFull');
+            const aiCursor = document.getElementById('aiCursor');
+            
+            if (!typingElement || !fullTextElement || !aiCursor) {
+                console.log('AI typing elements not found');
+                return;
+            }
+            
+            const fullText = fullTextElement.textContent.trim();
+            if (!fullText) {
+                console.log('No AI text to type');
+                return;
+            }
+            
+            let currentIndex = 0;
+            
+            // Clear and setup
+            typingElement.innerHTML = '';
+            
+            // Add live output indicator
+            const indicator = document.createElement('span');
+            indicator.style.color = 'var(--terminal-amber)';
+            indicator.textContent = '[LIVE] ';
+            typingElement.appendChild(indicator);
+            
+            // Create content container
+            const contentSpan = document.createElement('span');
+            contentSpan.style.color = 'var(--terminal-green)';
+            typingElement.appendChild(contentSpan);
+            
+            // Add cursor
+            typingElement.appendChild(aiCursor);
+            
+            function typeCharacter() {
+                if (currentIndex < fullText.length) {
+                    const char = fullText[currentIndex];
+                    contentSpan.textContent += char;
+                    currentIndex++;
+                    
+                    // Variable speed for realism
+                    let delay = 15 + Math.random() * 25; // 15-40ms (snabbare från 40-100ms)
+                    
+                    if (char === '.' || char === '!' || char === '?') {
+                        delay += 150; // Kortare paus (från 400ms)
+                    } else if (char === ',' || char === ';') {
+                        delay += 80; // Kortare paus (från 200ms)
+                    } else if (char === ' ') {
+                        delay += 10; // Kortare paus (från 30ms)
+                    }
+                    
+                    setTimeout(typeCharacter, delay);
+                } else {
+                    // Finished typing - hide cursor after delay
+                    setTimeout(() => {
+                        aiCursor.style.display = 'none';
+                    }, 2000);
+                }
+            }
+            
+            // Start typing after delay
+            setTimeout(typeCharacter, 400); // Kortare starttid (från 800ms)
         }
 
         // ASCII Negative Price Chart Generator - Fokuserad på produktionsfördelning
@@ -290,12 +365,12 @@
             // Rekommendationer baserat på andel
             if (negativePercentage > 0.2) {
                 chart += '🔴 KRITISKT: >20% av produktionen vid negativa priser!\n';
-                chart += '   Stark rekommendation: Batterilager + produktionsstyrning\n';
-                chart += '   Sourceful Zap kan optimera detta automatiskt.';
+                chart += '   Stark rekommendation: Produktionsstyrning med Sourceful Zap\n';
+                chart += '   Zap kan automatiskt stänga av solcellerna.';
             } else if (negativePercentage > 0.1) {
                 chart += '🟡 VARNING: >10% av produktionen vid negativa priser\n';
-                chart += '   Överväg batterilager för att lagra "gratis" el\n';
-                chart += '   till bättre tider.';
+                chart += '   Överväg produktionsstyrning för att undvika\n';
+                chart += '   att sälja el när det kostar pengar.';
             } else if (negativePercentage > 0.05) {
                 chart += '🟢 MÅTTLIG: <10% påverkan från negativa priser\n';
                 chart += '   Mindre optimering möjlig med smart styrning.';
@@ -307,7 +382,7 @@
             container.innerHTML = chart;
         }
 
-        // Generate charts when page loads
+        // Generate charts and start AI typing when page loads
         document.addEventListener('DOMContentLoaded', function() {
             {% if results and results.analysis %}
                 const analysisData = {
@@ -319,6 +394,9 @@
                 };
                 generateNegativePriceChart(analysisData, 'negativePriceChart');
             {% endif %}
+            
+            // Start AI explanation typing effect
+            setTimeout(typeAIExplanation, 1000);
         });
     </script>
 </body>

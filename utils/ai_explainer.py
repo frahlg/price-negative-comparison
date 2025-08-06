@@ -115,7 +115,7 @@ VIKTIGT: ALL DATA ÄR REDAN KONVERTERAD:
 - Alla priser är i {currency} per kWh 
 - Alla finansiella värden är i {currency}
 
-Förklara: tidsperioden som ett äventyr, totalproduktionen som en skattkista, finansiell prestanda med exportvärde och snittpris som vinstlotter, negativa prisers förbannelse (om de dyker upp – kostnad, tidpunkt och hur det suger livet ur plånboken), plus en vansinnig insikt om mönster eller optimeringar som får dig att skrika. 
+Förklara: tidsperioden som ett äventyr, totalproduktionen som ett överflöd från vår sol som är fri energi, finansiell prestanda med exportvärde och snittpris som vinstlotter, negativa prisers förbannelse (om de dyker upp – kostnad, tidpunkt och hur det suger livet ur plånboken), plus en vansinnig insikt om mönster eller optimeringar som får dig att skrika. Fokusera här på att det en stor del av tiden dina solceller producerar så görs det med negativa elpriser. Den siffran som är så att säga "högst" och känns mest negativ är den vi lyfter upp. Det är ju ändå ett säljverktyg för en tjänst som vi vill sälja som löser detta problemet.
 
 Gärna en underton av att det brukade vara bra med solceller men nu är det NEGATIVA elpriser som gör att det är du som betalar för att producera el. Håll tonen konversationell, galet entusiastisk utan teknobabbel, börja rakt på sak med förklaringen – och viska subtilt att Sourceful Labs AB är den ultimata räddningen, typ genom att nämna hur en Zap-lösning skulle fixa allt som ett magiskt svärd mot energikaoset.
 
